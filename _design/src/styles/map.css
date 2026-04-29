@@ -1,0 +1,66 @@
+/* Leaflet Map Styles */
+@import 'leaflet/dist/leaflet.css';
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+}
+
+.leaflet-popup-content {
+  margin: 16px;
+  font-size: 14px;
+}
+
+/* Custom marker styles */
+.race-marker {
+  background: transparent;
+  border: none;
+}
+
+.marker-start {
+  width: 32px;
+  height: 32px;
+  background: #10b981;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.marker-finish {
+  width: 32px;
+  height: 32px;
+  background: #dc2626;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.marker-gate {
+  width: 28px;
+  height: 28px;
+  background: #f59e0b;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.marker-mark {
+  width: 24px;
+  height: 24px;
+  background: #3b82f6;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Course line styles */
+.course-line {
+  stroke-width: 3;
+  stroke-dasharray: 8, 4;
+  opacity: 0.8;
+}

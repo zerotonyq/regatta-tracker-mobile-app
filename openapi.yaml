@@ -1,0 +1,946 @@
+openapi: 3.0.3
+
+info:
+  title: Regatta Tracker Backend API
+  version: 1.1.0
+  description: |
+    Versioned gateway contract for Regatta Tracker services.
+    All mobile clients should use this document as the single source of truth.
+    Endpoints are exposed through nginx prefixes: /auth, /receiver, /management, /participant.
+
+servers:
+  - url: http://localhost
+    description: Nginx gateway from docker-compose
+
+tags:
+  - name: Auth
+  - name: Management
+  - name: Participant
+  - name: Receiver
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      parameters:
+        - $ref: '#/components/parameters/UserAgentHeader'
+        - $ref: '#/components/parameters/FingerprintHeaderOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie X-Refresh-token
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      parameters:
+        - $ref: '#/components/parameters/UserAgentHeader'
+        - $ref: '#/components/parameters/FingerprintHeaderOptional'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie X-Refresh-token
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /management/create_race:
+    post:
+      tags: [Management]
+      summary: Create race
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRaceRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /management/start_race:
+    post:
+      tags: [Management]
+      summary: Start race
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RaceIdRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /management/end_race:
+    post:
+      tags: [Management]
+      summary: End race
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RaceIdRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /management/users:
+    get:
+      tags: [Management]
+      summary: Search users for judge race setup
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/UserRole'
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /management/my-races:
+    get:
+      tags: [Management]
+      summary: List races assigned to current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceSummaryListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /management/races/{race_id}:
+    get:
+      tags: [Management]
+      summary: Get race details
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RaceIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /management/races/{race_id}/events:
+    get:
+      tags: [Management]
+      summary: Get judge race events
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RaceIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceEventListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Management]
+      summary: Publish judge race event with server-side idempotency
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RaceIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRaceEventRequest'
+      responses:
+        '200':
+          description: Existing event returned for repeated event_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceEvent'
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /management/races/{race_id}/course:
+    get:
+      tags: [Management]
+      summary: Get race course definition
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RaceIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceCourseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Management]
+      summary: Upsert race course definition
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RaceIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertRaceCourseRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceCourseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /management/races/{race_id}/results:
+    get:
+      tags: [Management]
+      summary: Get race summary for history and observability
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RaceIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceResultsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /participant/active-race:
+    get:
+      tags: [Participant]
+      summary: Get currently active race for participant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveRaceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /receiver/upload:
+    post:
+      tags: [Receiver]
+      summary: Upload single participant location point
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadLocationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessageResponse'
+              examples:
+                saved:
+                  value:
+                    status: OK
+                    message: OK
+                skipped:
+                  value:
+                    status: OK
+                    message: The race either didn't start or ended. The received coordinates were not saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /receiver/upload-batch:
+    post:
+      tags: [Receiver]
+      summary: Upload ordered GPS backlog batch with idempotent request_id
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadBatchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    UserAgentHeader:
+      name: User-Agent
+      in: header
+      required: true
+      schema:
+        type: string
+    FingerprintHeaderOptional:
+      name: X-Fingerprint
+      in: header
+      required: false
+      schema:
+        type: string
+    RaceIdPath:
+      name: race_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Authorization header: Bearer <access_token>
+
+  schemas:
+    UserRole:
+      type: string
+      enum: [participant, judge]
+
+    RaceStatus:
+      type: string
+      enum: [not_started, in_progress, finished]
+
+    JsonObject:
+      type: object
+      additionalProperties: true
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+        fingerprint:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required: [name, surname, role, login, password]
+      properties:
+        name:
+          type: string
+        surname:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        login:
+          type: string
+          minLength: 3
+          pattern: '^[A-Za-z0-9]+$'
+        password:
+          type: string
+          minLength: 8
+
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+        fingerprint:
+          type: string
+
+    CreateRaceRequest:
+      type: object
+      required: [participants, judges]
+      properties:
+        participants:
+          type: array
+          minItems: 3
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+        judges:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+
+    RaceIdRequest:
+      type: object
+      required: [race_id]
+      properties:
+        race_id:
+          type: integer
+          format: int64
+          minimum: 1
+
+    UploadLocationRequest:
+      type: object
+      required: [time, longitude, latitude]
+      properties:
+        time:
+          type: string
+          format: date-time
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+
+    UploadBatchPoint:
+      type: object
+      required:
+        - client_task_id
+        - session_id
+        - timestamp_utc
+        - longitude
+        - latitude
+      properties:
+        client_task_id:
+          type: string
+        session_id:
+          type: integer
+          format: int64
+          minimum: 1
+        timestamp_utc:
+          type: string
+          format: date-time
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        accuracy_meters:
+          type: number
+          format: double
+          nullable: true
+        speed_meters_per_second:
+          type: number
+          format: double
+          nullable: true
+
+    UploadBatchRequest:
+      type: object
+      required: [request_id, points]
+      properties:
+        request_id:
+          type: string
+        race_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        points:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UploadBatchPoint'
+
+    UploadBatchItemResult:
+      type: object
+      required: [client_task_id, session_id, status, message]
+      properties:
+        client_task_id:
+          type: string
+        session_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [saved, skipped]
+        message:
+          type: string
+
+    UploadBatchResponse:
+      type: object
+      required: [request_id, saved_count, skipped_count, items]
+      properties:
+        request_id:
+          type: string
+        saved_count:
+          type: integer
+          format: int64
+          minimum: 0
+        skipped_count:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadBatchItemResult'
+
+    UserSummary:
+      type: object
+      required: [id, name, surname, login, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        surname:
+          type: string
+        login:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    UserListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+
+    RaceSummary:
+      type: object
+      required: [race_id, status, role]
+      properties:
+        race_id:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/RaceStatus'
+        role:
+          $ref: '#/components/schemas/UserRole'
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    RaceSummaryListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceSummary'
+
+    RaceDetail:
+      type: object
+      required: [race_id, status, participants, judges]
+      properties:
+        race_id:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/RaceStatus'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        judges:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateRaceEventRequest:
+      type: object
+      required: [event_id, event_type]
+      properties:
+        event_id:
+          type: string
+        event_type:
+          type: string
+        payload:
+          $ref: '#/components/schemas/JsonObject'
+
+    RaceEvent:
+      type: object
+      required: [event_id, race_id, event_type, created_at, user_id, payload]
+      properties:
+        event_id:
+          type: string
+        race_id:
+          type: integer
+          format: int64
+        event_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        user_id:
+          type: integer
+          format: int64
+        payload:
+          $ref: '#/components/schemas/JsonObject'
+
+    RaceEventListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceEvent'
+
+    UpsertRaceCourseRequest:
+      type: object
+      required: [payload]
+      properties:
+        payload:
+          $ref: '#/components/schemas/JsonObject'
+
+    RaceCourseResponse:
+      type: object
+      required: [race_id, updated_at, payload]
+      properties:
+        race_id:
+          type: integer
+          format: int64
+        updated_at:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/JsonObject'
+
+    ActiveRaceResponse:
+      type: object
+      required: [active]
+      properties:
+        active:
+          type: boolean
+        race_id:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum: [not_started, in_progress, finished]
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    RaceResultsResponse:
+      type: object
+      required: [race_id, status, events_count, has_course]
+      properties:
+        race_id:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/RaceStatus'
+        events_count:
+          type: integer
+          minimum: 0
+        has_course:
+          type: boolean
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AuthTokensResponse:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+
+    IdResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+
+    StatusMessageResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+        message:
+          type: string
