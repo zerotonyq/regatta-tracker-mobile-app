@@ -230,16 +230,15 @@ class TrackingSessionService {
     required String role,
     required int intervalSeconds,
   }) {
-    final gpsHz = intervalSeconds <= 0 ? 1.0 : 1 / intervalSeconds;
     return SessionConfig(
       sessionId: sessionId,
       raceId: raceId,
       role: role,
-      gpsHz: gpsHz,
+      gpsHz: 1.0,
       imuHz: 50,
       desiredAccuracy: DesiredAccuracy.high,
       backgroundMode: BackgroundMode.foregroundService,
-      bufferingPolicy: BufferingPolicy.streamToFlutter,
+      bufferingPolicy: BufferingPolicy.persistNativeBuffer,
       initialTrackingProfile: TrackingProfile.prestartPrecision,
     );
   }

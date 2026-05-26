@@ -70,13 +70,9 @@ class AuthSessionController extends ChangeNotifier {
         ),
       );
     } on ApiException catch (failure) {
-      _setState(
-        AuthSessionState.unauthenticated(error: failure.message),
-      );
+      _setState(AuthSessionState.unauthenticated(error: failure.message));
     } catch (failure) {
-      _setState(
-        AuthSessionState.unauthenticated(error: failure.toString()),
-      );
+      _setState(AuthSessionState.unauthenticated(error: failure.toString()));
     } finally {
       _setBusy(false);
     }
@@ -145,10 +141,7 @@ class AuthSessionController extends ChangeNotifier {
     }
 
     _setState(
-      _state.copyWith(
-        status: AuthSessionStatus.restoring,
-        clearError: true,
-      ),
+      _state.copyWith(status: AuthSessionStatus.restoring, clearError: true),
     );
 
     try {
@@ -383,7 +376,12 @@ class AuthSessionController extends ChangeNotifier {
       return directRole;
     }
 
-    final nestedRoleKeys = <String>['roles', 'authorities', 'app_role', 'user_role'];
+    final nestedRoleKeys = <String>[
+      'roles',
+      'authorities',
+      'app_role',
+      'user_role',
+    ];
     for (final key in nestedRoleKeys) {
       final parsedRole = _parseRoleValue(payload[key]);
       if (parsedRole != null) {
@@ -429,9 +427,8 @@ class AuthSessionController extends ChangeNotifier {
 
     try {
       final normalized = base64Url.normalize(parts[1]);
-      return jsonDecode(
-        utf8.decode(base64Url.decode(normalized)),
-      ) as Map<String, Object?>;
+      return jsonDecode(utf8.decode(base64Url.decode(normalized)))
+          as Map<String, Object?>;
     } catch (_) {
       return null;
     }

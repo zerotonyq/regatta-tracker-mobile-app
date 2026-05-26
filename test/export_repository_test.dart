@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:regatta_sensor_bridge/regatta_sensor_bridge.dart';
@@ -25,7 +26,8 @@ void main() {
       raceId: 9001,
       role: 'participant',
       intervalSeconds: 2,
-      sensorHealthSnapshot: 'gpsEnabled=true;imuEnabled=true;pendingSync=0;dropped=2;gpsAccuracy=3.10',
+      sensorHealthSnapshot:
+          'gpsEnabled=true;imuEnabled=true;pendingSync=0;dropped=2;gpsAccuracy=3.10',
     );
 
     await trackingRepository.saveGpsPoint(
@@ -77,7 +79,8 @@ void main() {
       state: TrackingSessionState.completed,
       endedAtUtc: DateTime.utc(2026, 4, 29, 18, 5, 0),
       lastSyncAtUtc: DateTime.utc(2026, 4, 29, 18, 5, 5),
-      sensorHealthSnapshot: 'gpsEnabled=true;imuEnabled=true;pendingSync=0;dropped=2;gpsAccuracy=3.10',
+      sensorHealthSnapshot:
+          'gpsEnabled=true;imuEnabled=true;pendingSync=0;dropped=2;gpsAccuracy=3.10',
     );
 
     final repository = ExportRepositoryImpl(
@@ -116,6 +119,12 @@ void main() {
     expect(await File(csv.filePath).exists(), isTrue);
     expect(zip.fileName, endsWith('.zip'));
     expect(await File(zip.filePath).exists(), isTrue);
+    final archive = ZipDecoder().decodeBytes(zip.bytes);
+    final archiveNames = archive.files.map((file) => file.name).toSet();
+    expect(archiveNames, contains('manifest.json'));
+    expect(archiveNames, contains('derived_metrics.csv'));
+    expect(archiveNames, contains('derived_metrics.json'));
+    expect(archiveNames.any((name) => name.startsWith('imu_chunks/')), isTrue);
     expect(diagnostics.fileName, contains('diagnostics'));
     expect(await File(diagnostics.filePath).exists(), isTrue);
 

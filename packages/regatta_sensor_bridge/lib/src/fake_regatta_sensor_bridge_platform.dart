@@ -101,6 +101,8 @@ class FakeRegattaSensorBridgePlatform extends RegattaSensorBridgePlatform {
       _currentHealth.copyWith(
         sessionId: config.sessionId,
         backgroundServiceRunning: true,
+        targetGpsHz: config.gpsHz,
+        targetImuHz: config.imuHz,
       ),
     );
     return status;
@@ -203,6 +205,8 @@ extension on HealthEvent {
     int? lastGpsSampleAgeMs,
     int? lastImuSampleAgeMs,
     double? gpsAccuracyMeters,
+    double? targetGpsHz,
+    double? targetImuHz,
     NativeError? error,
   }) {
     return HealthEvent(
@@ -222,6 +226,8 @@ extension on HealthEvent {
       gpsAccuracyMeters: gpsAccuracyMeters ?? this.gpsAccuracyMeters,
       receivedGpsSamples: receivedGpsSamples,
       receivedImuSamples: receivedImuSamples,
+      targetGpsHz: targetGpsHz ?? this.targetGpsHz,
+      targetImuHz: targetImuHz ?? this.targetImuHz,
       averageGpsRateHz: averageGpsRateHz,
       averageImuRateHz: averageImuRateHz,
       lastGpsSensorTimestamp: lastGpsSensorTimestamp,

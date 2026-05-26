@@ -146,9 +146,7 @@ class JudgeRaceFlowService {
     }
     if (currentContext.status != JudgeRaceStatus.started ||
         currentContext.lastRaceId != raceId) {
-      throw const JudgeFlowFailure(
-        'Завершить можно только уже начатую гонку.',
-      );
+      throw const JudgeFlowFailure('Завершить можно только уже начатую гонку.');
     }
 
     final requestedAt = DateTime.now().toUtc();

@@ -47,6 +47,19 @@ class RegattaSensorBridgePlugin :
             SessionStreamHandler(
                 latestValue = { sessionId -> null },
                 subscribe = { sink, sessionId ->
+                    sessionId?.let { id ->
+                        val chunkRefs = RegattaTrackingStore(applicationContext).listImuChunkRefs(id)
+                        for (chunkRef in chunkRefs) {
+                            sink.success(
+                                mapOf(
+                                    "sessionId" to id,
+                                    "recordedAt" to iso8601(),
+                                    "gpsPoints" to emptyList<Map<String, Any?>>(),
+                                    "imuChunkRefs" to listOf(chunkRef),
+                                ),
+                            )
+                        }
+                    }
                     RegattaTrackingSessionManager.registerSampleListener { sample ->
                         if (sessionId == null || sample["sessionId"] == sessionId) {
                             sink.success(sample)

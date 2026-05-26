@@ -106,10 +106,11 @@ class TrackingPointDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> countPointsForSession(int sessionId) async {
     final countExpression = gpsPoints.id.count();
-    final row = await (selectOnly(gpsPoints)
-          ..addColumns([countExpression])
-          ..where(gpsPoints.sessionId.equals(sessionId)))
-        .getSingle();
+    final row =
+        await (selectOnly(gpsPoints)
+              ..addColumns([countExpression])
+              ..where(gpsPoints.sessionId.equals(sessionId)))
+            .getSingle();
     return row.read(countExpression) ?? 0;
   }
 }

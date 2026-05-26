@@ -37,13 +37,42 @@ class ImuChunkDao extends DatabaseAccessor<AppDatabase>
   ) async {
     final chunkCountExpression = imuChunks.id.count();
     final sampleCountExpression = imuChunks.sampleCount.sum();
-    final row = await (selectOnly(imuChunks)
-          ..addColumns([chunkCountExpression, sampleCountExpression])
-          ..where(imuChunks.sessionId.equals(sessionId)))
-        .getSingle();
+    final row =
+        await (selectOnly(imuChunks)
+              ..addColumns([chunkCountExpression, sampleCountExpression])
+              ..where(imuChunks.sessionId.equals(sessionId)))
+            .getSingle();
     return (
       row.read(chunkCountExpression) ?? 0,
       row.read(sampleCountExpression) ?? 0,
     );
+  }
+
+  Future<List<ImuChunkEntity>> loadChunksForSession(int sessionId) async {
+    final rows =
+        await (select(imuChunks)
+              ..where((tbl) => tbl.sessionId.equals(sessionId))
+              ..orderBy([
+                (tbl) => OrderingTerm(
+                  expression: tbl.capturedAtUtc,
+                  mode: OrderingMode.asc,
+                ),
+              ]))
+            .get();
+
+    return rows
+        .map(
+          (ImuChunk row) => ImuChunkEntity(
+            id: row.id,
+            sessionId: row.sessionId,
+            capturedAtUtc: row.capturedAtUtc,
+            chunkStartMonotonicNs: row.chunkStartMonotonicNs,
+            sampleCount: row.sampleCount,
+            samplingHz: row.samplingHz,
+            payload: row.payload,
+            payloadFormat: row.payloadFormat,
+          ),
+        )
+        .toList(growable: false);
   }
 }

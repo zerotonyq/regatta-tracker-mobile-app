@@ -31,10 +31,11 @@ class ReceiverSyncTaskExecutor
     }
 
     return _handleApiCall(() async {
-      await _receiverRemoteDataSource.uploadBatch(
+      final response = await _receiverRemoteDataSource.uploadBatch(
         requestId: 'sync-${job.id}',
         points: <UploadBatchPointDto>[_pointFromPayload(payload)],
       );
+      return _resultFromResponse(response, payload.clientTaskId);
     });
   }
 
@@ -96,9 +97,7 @@ class ReceiverSyncTaskExecutor
       if (jobId == null) {
         continue;
       }
-      results[jobId] = item.status == 'saved' || item.status == 'skipped'
-          ? const SyncTaskResult.synced()
-          : SyncTaskResult.retryableFailure(item.message);
+      results[jobId] = _resultFromItem(item);
     }
     for (final jobId in payloadsByJobId.keys) {
       results.putIfAbsent(jobId, () => const SyncTaskResult.synced());
@@ -118,10 +117,11 @@ class ReceiverSyncTaskExecutor
     );
   }
 
-  Future<SyncTaskResult> _handleApiCall(Future<void> Function() call) async {
+  Future<SyncTaskResult> _handleApiCall(
+    Future<SyncTaskResult> Function() call,
+  ) async {
     try {
-      await call();
-      return const SyncTaskResult.synced();
+      return await call();
     } catch (error) {
       return _mapError(error);
     }
@@ -148,5 +148,35 @@ class ReceiverSyncTaskExecutor
       return SyncTaskResult.terminalFailure(error.message);
     }
     return SyncTaskResult.retryableFailure(error.toString());
+  }
+
+  SyncTaskResult _resultFromResponse(
+    UploadBatchResponseDto response,
+    String clientTaskId,
+  ) {
+    for (final item in response.items) {
+      if (item.clientTaskId == clientTaskId) {
+        return _resultFromItem(item);
+      }
+    }
+    return response.skippedCount == 0
+        ? const SyncTaskResult.synced()
+        : const SyncTaskResult.retryableFailure(
+            'Receiver did not return an item result for the upload.',
+          );
+  }
+
+  SyncTaskResult _resultFromItem(UploadBatchItemResultDto item) {
+    if (item.status == 'saved') {
+      return const SyncTaskResult.synced();
+    }
+    if (item.status == 'skipped') {
+      final message = item.message;
+      if (message.contains("didn't start or ended")) {
+        return SyncTaskResult.retryableFailure(message);
+      }
+      return SyncTaskResult.terminalFailure(message);
+    }
+    return SyncTaskResult.retryableFailure(item.message);
   }
 }

@@ -55,7 +55,9 @@ class _RacingModePageState extends State<RacingModePage> {
       widget.controller.addListener(_handleControllerChange);
     }
     if (oldWidget.raceComputerController != widget.raceComputerController) {
-      oldWidget.raceComputerController.removeListener(_handleRaceComputerChange);
+      oldWidget.raceComputerController.removeListener(
+        _handleRaceComputerChange,
+      );
       widget.raceComputerController.addListener(_handleRaceComputerChange);
     }
     _refreshRaceComputerIfNeeded();
@@ -199,7 +201,8 @@ class _RacingModePageState extends State<RacingModePage> {
   }
 
   void _triggerCueIfNeeded(StartProcedureEntity? startProcedure) {
-    if (startProcedure == null || startProcedure.cue == StartProcedureCue.none) {
+    if (startProcedure == null ||
+        startProcedure.cue == StartProcedureCue.none) {
       return;
     }
     final token = '${startProcedure.cue.name}-${startProcedure.phase}';
@@ -324,6 +327,23 @@ class _RacingModePageState extends State<RacingModePage> {
                   'Точность GPS: ${health.gpsAccuracyMeters?.toStringAsFixed(1) ?? 'н/д'} м',
                 ),
                 const SizedBox(height: 8),
+                Text(
+                  'Частота GPS: ${_formatRate(health.averageGpsRateHz)} / ${_formatRate(health.targetGpsHz)}',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Частота IMU: ${_formatRate(health.averageImuRateHz)} / ${_formatRate(health.targetImuHz)}',
+                ),
+                if (health.hasTelemetryWarning) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Фактическая частота датчиков ниже целевой.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
                 Text('Профиль трекинга: ${_trackingProfileLabel()}'),
                 const SizedBox(height: 8),
                 Text('GPS: ${health.gpsEnabled ? 'включен' : 'выключен'}'),
@@ -382,6 +402,10 @@ class _RacingModePageState extends State<RacingModePage> {
         },
       ),
     );
+  }
+
+  String _formatRate(double? value) {
+    return value == null ? 'н/д' : '${value.toStringAsFixed(1)} Гц';
   }
 }
 

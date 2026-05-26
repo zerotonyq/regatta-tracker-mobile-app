@@ -33,38 +33,49 @@ class LiveTrackingDeliveryService {
     await _trackingRepository.saveGpsPoint(point: point);
 
     try {
-      await _receiverRemoteDataSource.uploadBatch(
+      final response = await _receiverRemoteDataSource.uploadBatch(
         requestId: _requestIdFor(sessionId, point),
         points: <UploadBatchPointDto>[_pointDtoFromEntity(sessionId, point)],
       );
+      if (response.items.any((item) => item.status == 'skipped')) {
+        await _queueForLaterSync(sessionId, point, forceFlush: true);
+        return;
+      }
       _resetFailureState(sessionId);
     } catch (error) {
       if (!_shouldFallbackLocally(error)) {
         rethrow;
       }
-
-      final pendingPoints = _pendingPointsBySession.putIfAbsent(
-        sessionId,
-        () => <TrackingPointEntity>[],
-      );
-      pendingPoints.add(point);
-
-      final failureCount = (_consecutiveFailuresBySession[sessionId] ?? 0) + 1;
-      _consecutiveFailuresBySession[sessionId] = failureCount;
-
-      if (failureCount >= maxConsecutiveFailuresBeforeLocalBuffer) {
-        _localFallbackSessions.add(sessionId);
-      }
-
-      if (!_localFallbackSessions.contains(sessionId)) {
-        return;
-      }
-
-      for (final pendingPoint in List<TrackingPointEntity>.from(pendingPoints)) {
-        await _trackingSessionRepository.queueGpsPointForSync(pendingPoint);
-      }
-      pendingPoints.clear();
+      await _queueForLaterSync(sessionId, point);
     }
+  }
+
+  Future<void> _queueForLaterSync(
+    int sessionId,
+    TrackingPointEntity point, {
+    bool forceFlush = false,
+  }) async {
+    final pendingPoints = _pendingPointsBySession.putIfAbsent(
+      sessionId,
+      () => <TrackingPointEntity>[],
+    );
+    pendingPoints.add(point);
+
+    final failureCount = (_consecutiveFailuresBySession[sessionId] ?? 0) + 1;
+    _consecutiveFailuresBySession[sessionId] = failureCount;
+
+    if (forceFlush || failureCount >= maxConsecutiveFailuresBeforeLocalBuffer) {
+      _localFallbackSessions.add(sessionId);
+    }
+
+    if (!_localFallbackSessions.contains(sessionId)) {
+      return;
+    }
+
+    for (final pendingPoint in List<TrackingPointEntity>.from(pendingPoints)) {
+      await _trackingSessionRepository.queueGpsPointForSync(pendingPoint);
+    }
+    pendingPoints.clear();
   }
 
   void _resetFailureState(int sessionId) {

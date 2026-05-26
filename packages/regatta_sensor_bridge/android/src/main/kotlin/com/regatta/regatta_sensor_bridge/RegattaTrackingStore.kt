@@ -48,6 +48,28 @@ internal class RegattaTrackingStore(private val context: Context) {
         )
     }
 
+    fun listImuChunkRefs(sessionId: String): List<Map<String, Any?>> {
+        val imuDir = File(sessionDir(sessionId), "imu")
+        if (!imuDir.exists()) {
+            return emptyList()
+        }
+        return imuDir.listFiles { file -> file.isFile && file.extension == "bin" }
+            ?.sortedBy { it.name }
+            ?.map { file ->
+                val startedAtMillis = file.name
+                    .removePrefix("imu_")
+                    .removeSuffix(".bin")
+                    .toLongOrNull() ?: file.lastModified()
+                mapOf(
+                    "chunkId" to file.name.removeSuffix(".bin"),
+                    "startedAt" to iso8601(startedAtMillis),
+                    "sampleCount" to (file.length() / 28L).toInt(),
+                    "storagePath" to file.absolutePath,
+                )
+            }
+            ?: emptyList()
+    }
+
     private fun appendJsonLine(file: File, payload: Map<String, Any?>) {
         file.parentFile?.mkdirs()
         file.appendText(JSONObject(payload).toString() + "\n")

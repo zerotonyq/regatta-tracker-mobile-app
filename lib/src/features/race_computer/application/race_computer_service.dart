@@ -68,7 +68,8 @@ class RaceComputerService {
             ? 'prestart_countdown'
             : 'awaiting_course',
         updatedAtUtc: nowUtc,
-        statusMessage: startProcedure?.statusMessage ??
+        statusMessage:
+            startProcedure?.statusMessage ??
             'Опорный курс еще не настроен. Постройте его, чтобы получить подсказки по геометрии дистанции.',
         recommendedTrackingProfile: _recommendedProfile(
           trackingState: trackingState,

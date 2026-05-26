@@ -15,9 +15,7 @@ import 'package:vkr_regatta/src/features/receiver/data/receiver_remote_data_sour
 import 'package:vkr_regatta/src/presentation/auth/login_page.dart';
 
 void main() {
-  testWidgets('renders login after bootstrap', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('renders login after bootstrap', (WidgetTester tester) async {
     final tokenStore = InMemoryAuthTokenStore();
     final authRemoteDataSource = AuthRemoteDataSource(
       authApi: null,

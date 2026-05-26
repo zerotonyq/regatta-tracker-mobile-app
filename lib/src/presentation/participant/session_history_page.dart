@@ -45,12 +45,15 @@ class _SessionHistoryPageState extends State<SessionHistoryPage> {
             padding: const EdgeInsets.all(16),
             child: ListView(
               children: [
-                if (diagnostics != null) _DiagnosticsCard(diagnostics: diagnostics),
+                if (diagnostics != null)
+                  _DiagnosticsCard(diagnostics: diagnostics),
                 if (widget.controller.error != null) ...[
                   const SizedBox(height: 12),
                   Text(
                     widget.controller.error!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ],
                 if (widget.controller.lastExport != null) ...[
@@ -70,10 +73,9 @@ class _SessionHistoryPageState extends State<SessionHistoryPage> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
-                if (widget.controller.sessions.isEmpty && !widget.controller.loading)
-                  const Text(
-                    'Завершенных сессий пока нет.',
-                  )
+                if (widget.controller.sessions.isEmpty &&
+                    !widget.controller.loading)
+                  const Text('Завершенных сессий пока нет.')
                 else
                   ...widget.controller.sessions.map(
                     (session) => _SessionSummaryCard(

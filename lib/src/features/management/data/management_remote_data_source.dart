@@ -54,7 +54,10 @@ class ManagementRemoteDataSource {
     }
   }
 
-  Future<UserListResponseDto> searchUsers({UserRole? role, String? query}) async {
+  Future<UserListResponseDto> searchUsers({
+    UserRole? role,
+    String? query,
+  }) async {
     final managementApi = _requireApi();
 
     try {

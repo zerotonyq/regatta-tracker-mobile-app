@@ -31,9 +31,7 @@ abstract class ManagementApi {
   Future<RaceDetailDto> getRace(@Path('race_id') int raceId);
 
   @GET('/management/races/{race_id}/events')
-  Future<RaceEventListResponseDto> getRaceEvents(
-    @Path('race_id') int raceId,
-  );
+  Future<RaceEventListResponseDto> getRaceEvents(@Path('race_id') int raceId);
 
   @POST('/management/races/{race_id}/events')
   Future<RaceEventDto> createRaceEvent(

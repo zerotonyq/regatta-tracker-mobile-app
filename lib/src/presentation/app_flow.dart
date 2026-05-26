@@ -272,7 +272,8 @@ class _AppFlowState extends State<AppFlow> {
       _FlowScreen.participantDashboard => ParticipantDashboardPage(
         authController: _authController,
         trackingController: _trackingController,
-        managementRemoteDataSource: widget.dependencies.managementRemoteDataSource,
+        managementRemoteDataSource:
+            widget.dependencies.managementRemoteDataSource,
         onStartRacing: () =>
             setState(() => _screen = _FlowScreen.participantRacing),
         onOpenHistory: () =>

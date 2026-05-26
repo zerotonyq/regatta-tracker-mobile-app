@@ -172,9 +172,7 @@ class AppDependencies {
   }
 
   ExportController createExportController() {
-    return ExportController(
-      exportSessionDataUseCase: exportSessionDataUseCase,
-    );
+    return ExportController(exportSessionDataUseCase: exportSessionDataUseCase);
   }
 
   factory AppDependencies.bootstrap() {

@@ -23,15 +23,18 @@ void main() {
           sensorBridgeRepository: sensorBridge,
         );
 
-        final snapshot = await service.start(
-          raceId: 42,
-          role: 'participant',
-        );
+        final snapshot = await service.start(raceId: 42, role: 'participant');
 
         expect(snapshot.session.state, TrackingSessionState.tracking);
         expect(repository.transitions, [TrackingSessionState.tracking]);
         expect(sensorBridge.startedConfigs, hasLength(1));
         expect(sensorBridge.startedConfigs.single.sessionId, '1');
+        expect(sensorBridge.startedConfigs.single.gpsHz, 1.0);
+        expect(sensorBridge.startedConfigs.single.imuHz, 50.0);
+        expect(
+          sensorBridge.startedConfigs.single.bufferingPolicy,
+          BufferingPolicy.persistNativeBuffer,
+        );
         expect(
           sensorBridge.startedConfigs.single.initialTrackingProfile,
           TrackingProfile.prestartPrecision,
@@ -152,36 +155,40 @@ void main() {
     },
   );
 
-  test('TrackingSessionController publishes recommended tracking profile', () async {
-    final repository = _FakeTrackingSessionRepository(
-      initialSession: TrackingSessionEntity(
-        id: 9,
-        raceId: 101,
-        role: 'participant',
-        state: TrackingSessionState.tracking,
-        intervalSeconds: 4,
-        startedAtUtc: DateTime.utc(2026, 4, 29, 11, 0, 0),
-      ),
-    );
-    final sensorBridge = _FakeSensorBridgeRepository(
-      health: _healthyTrackingHealth(),
-    );
-    final service = TrackingSessionService(
-      trackingSessionRepository: repository,
-      sensorBridgeRepository: sensorBridge,
-    );
-    final controller = TrackingSessionController(
-      trackingSessionService: service,
-    );
+  test(
+    'TrackingSessionController publishes recommended tracking profile',
+    () async {
+      final repository = _FakeTrackingSessionRepository(
+        initialSession: TrackingSessionEntity(
+          id: 9,
+          raceId: 101,
+          role: 'participant',
+          state: TrackingSessionState.tracking,
+          intervalSeconds: 4,
+          startedAtUtc: DateTime.utc(2026, 4, 29, 11, 0, 0),
+        ),
+      );
+      final sensorBridge = _FakeSensorBridgeRepository(
+        health: _healthyTrackingHealth(),
+      );
+      final service = TrackingSessionService(
+        trackingSessionRepository: repository,
+        sensorBridgeRepository: sensorBridge,
+      );
+      final controller = TrackingSessionController(
+        trackingSessionService: service,
+      );
 
-    await controller.restore();
-    await controller.setTrackingProfile(TrackingProfile.markRoundingPrecision);
+      await controller.restore();
+      await controller.setTrackingProfile(
+        TrackingProfile.markRoundingPrecision,
+      );
 
-    expect(
-      sensorBridge.publishedProfiles,
-      <TrackingProfile>[TrackingProfile.markRoundingPrecision],
-    );
-  });
+      expect(sensorBridge.publishedProfiles, <TrackingProfile>[
+        TrackingProfile.markRoundingPrecision,
+      ]);
+    },
+  );
 }
 
 TrackingHealth _healthyTrackingHealth() {

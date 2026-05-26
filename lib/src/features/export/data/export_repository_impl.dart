@@ -10,6 +10,8 @@ import '../../../core/config/app_config.dart';
 import '../../local_storage/database/app_database.dart';
 import '../../sensor_bridge/domain/sensor_bridge_repository.dart';
 import '../../tracking/domain/tracking_health.dart';
+import '../../tracking/domain/derived_metric_entity.dart';
+import '../../tracking/domain/imu_chunk_entity.dart';
 import '../../tracking/domain/tracking_point_entity.dart';
 import '../../tracking/domain/tracking_session_entity.dart';
 import '../domain/diagnostics_snapshot_entity.dart';
@@ -36,7 +38,8 @@ class ExportRepositoryImpl implements ExportRepository {
 
   @override
   Future<List<SessionSummaryEntity>> loadCompletedSessions() async {
-    final sessions = await _appDatabase.trackingSessionDao.loadCompletedSessions();
+    final sessions = await _appDatabase.trackingSessionDao
+        .loadCompletedSessions();
     final summaries = <SessionSummaryEntity>[];
     for (final session in sessions) {
       summaries.add(await _buildSessionSummary(session));
@@ -46,7 +49,9 @@ class ExportRepositoryImpl implements ExportRepository {
 
   @override
   Future<SessionSummaryEntity?> loadSessionSummary(int sessionId) async {
-    final session = await _appDatabase.trackingSessionDao.loadSessionById(sessionId);
+    final session = await _appDatabase.trackingSessionDao.loadSessionById(
+      sessionId,
+    );
     if (session == null) {
       return null;
     }
@@ -58,7 +63,9 @@ class ExportRepositoryImpl implements ExportRepository {
     final session = sessionId == null
         ? null
         : await _appDatabase.trackingSessionDao.loadSessionById(sessionId);
-    final summary = session == null ? null : await _buildSessionSummary(session);
+    final summary = session == null
+        ? null
+        : await _buildSessionSummary(session);
     final health = await _sensorBridgeRepository.readTrackingHealth(
       sessionId: sessionId?.toString(),
     );
@@ -74,7 +81,9 @@ class ExportRepositoryImpl implements ExportRepository {
     required int sessionId,
     required ExportFormat format,
   }) async {
-    final session = await _appDatabase.trackingSessionDao.loadSessionById(sessionId);
+    final session = await _appDatabase.trackingSessionDao.loadSessionById(
+      sessionId,
+    );
     if (session == null) {
       throw StateError('Session $sessionId was not found.');
     }
@@ -85,7 +94,8 @@ class ExportRepositoryImpl implements ExportRepository {
     );
 
     final createdAtUtc = DateTime.now().toUtc();
-    final diagnosticsTag = 'diag-$sessionId-${createdAtUtc.microsecondsSinceEpoch}';
+    final diagnosticsTag =
+        'diag-$sessionId-${createdAtUtc.microsecondsSinceEpoch}';
     final jobId = await _appDatabase
         .into(_appDatabase.exportJobs)
         .insert(
@@ -120,16 +130,16 @@ class ExportRepositoryImpl implements ExportRepository {
       await file.writeAsBytes(bytes, flush: true);
       final completedAtUtc = DateTime.now().toUtc();
 
-      await (_appDatabase.update(_appDatabase.exportJobs)
-            ..where((tbl) => tbl.id.equals(jobId)))
-          .write(
-            ExportJobsCompanion(
-              state: const drift.Value('completed'),
-              completedAtUtc: drift.Value(completedAtUtc),
-              filePath: drift.Value(filePath),
-              diagnosticsTag: drift.Value(diagnosticsTag),
-            ),
-          );
+      await (_appDatabase.update(
+        _appDatabase.exportJobs,
+      )..where((tbl) => tbl.id.equals(jobId))).write(
+        ExportJobsCompanion(
+          state: const drift.Value('completed'),
+          completedAtUtc: drift.Value(completedAtUtc),
+          filePath: drift.Value(filePath),
+          diagnosticsTag: drift.Value(diagnosticsTag),
+        ),
+      );
 
       return ExportPayloadEntity(
         fileName: fileName,
@@ -141,16 +151,16 @@ class ExportRepositoryImpl implements ExportRepository {
         diagnosticsTag: diagnosticsTag,
       );
     } catch (error) {
-      await (_appDatabase.update(_appDatabase.exportJobs)
-            ..where((tbl) => tbl.id.equals(jobId)))
-          .write(
-            ExportJobsCompanion(
-              state: const drift.Value('failed'),
-              completedAtUtc: drift.Value(DateTime.now().toUtc()),
-              errorMessage: drift.Value(error.toString()),
-              diagnosticsTag: drift.Value(diagnosticsTag),
-            ),
-          );
+      await (_appDatabase.update(
+        _appDatabase.exportJobs,
+      )..where((tbl) => tbl.id.equals(jobId))).write(
+        ExportJobsCompanion(
+          state: const drift.Value('failed'),
+          completedAtUtc: drift.Value(DateTime.now().toUtc()),
+          errorMessage: drift.Value(error.toString()),
+          diagnosticsTag: drift.Value(diagnosticsTag),
+        ),
+      );
       rethrow;
     }
   }
@@ -158,19 +168,19 @@ class ExportRepositoryImpl implements ExportRepository {
   Future<SessionSummaryEntity> _buildSessionSummary(
     TrackingSessionEntity session,
   ) async {
-    final gpsPointCount = await _appDatabase.trackingPointDao.countPointsForSession(
-      session.id,
-    );
+    final gpsPointCount = await _appDatabase.trackingPointDao
+        .countPointsForSession(session.id);
     final imuSummary = await _appDatabase.imuChunkDao.summarizeForSession(
       session.id,
     );
     final gpsPoints = await _appDatabase.trackingPointDao.loadPointsForSession(
       session.id,
     );
-    final derivedMetrics = await _appDatabase.derivedMetricDao.loadMetricsForSession(
+    final derivedMetrics = await _appDatabase.derivedMetricDao
+        .loadMetricsForSession(session.id);
+    final syncJobs = await _appDatabase.syncQueueDao.getJobsForSession(
       session.id,
     );
-    final syncJobs = await _appDatabase.syncQueueDao.getJobsForSession(session.id);
     final exportRow = await _loadLatestExportJob(session.id);
     final endedAtUtc = session.endedAtUtc ?? gpsPoints.lastOrNull?.timestampUtc;
     final duration = endedAtUtc == null
@@ -192,7 +202,9 @@ class ExportRepositoryImpl implements ExportRepository {
       'roll_deg',
       'pitch_deg',
     ]) {
-      final metric = derivedMetrics.where((item) => item.metricType == metricType);
+      final metric = derivedMetrics.where(
+        (item) => item.metricType == metricType,
+      );
       if (metric.isNotEmpty) {
         derivedMetricSummary[metricType] = metric.first.metricValue;
       }
@@ -230,9 +242,8 @@ class ExportRepositoryImpl implements ExportRepository {
           : 0.0,
       derivedMetricSummary: derivedMetricSummary,
       droppedSampleCount: droppedSampleCount,
-      hasErrors: session.failureReason != null ||
-          failedSync ||
-          droppedSampleCount > 0,
+      hasErrors:
+          session.failureReason != null || failedSync || droppedSampleCount > 0,
       failureReason: session.failureReason,
       sensorHealthSnapshot: session.sensorHealthSnapshot,
       lastExportPath: exportRow?.filePath,
@@ -309,6 +320,19 @@ class ExportRepositoryImpl implements ExportRepository {
     final csv = _buildCsv(summary: summary, gpsPoints: gpsPoints);
     final gpx = _buildGpx(gpsPoints);
     final geoJson = _buildGeoJson(gpsPoints);
+    final derivedMetrics = await _appDatabase.derivedMetricDao
+        .loadMetricsForSession(summary.sessionId);
+    final imuChunks = await _appDatabase.imuChunkDao.loadChunksForSession(
+      summary.sessionId,
+    );
+    final derivedMetricsCsv = _buildDerivedMetricsCsv(derivedMetrics);
+    final derivedMetricsJson = _buildDerivedMetricsJson(derivedMetrics);
+    final manifestJson = _buildManifestJson(
+      summary: summary,
+      diagnostics: diagnostics,
+      imuChunks: imuChunks,
+      derivedMetrics: derivedMetrics,
+    );
 
     return switch (format) {
       ExportFormat.csv => utf8.encode(csv),
@@ -316,29 +340,99 @@ class ExportRepositoryImpl implements ExportRepository {
       ExportFormat.geoJson => utf8.encode(geoJson),
       ExportFormat.diagnosticsJson => utf8.encode(diagnosticsJson),
       ExportFormat.zipBundle => _buildZipBundle(
+        manifestJson: manifestJson,
         summaryJson: summaryJson,
         diagnosticsJson: diagnosticsJson,
         csv: csv,
         gpx: gpx,
         geoJson: geoJson,
+        derivedMetricsCsv: derivedMetricsCsv,
+        derivedMetricsJson: derivedMetricsJson,
+        imuChunks: imuChunks,
       ),
     };
   }
 
   List<int> _buildZipBundle({
+    required String manifestJson,
     required String summaryJson,
     required String diagnosticsJson,
     required String csv,
     required String gpx,
     required String geoJson,
+    required String derivedMetricsCsv,
+    required String derivedMetricsJson,
+    required List<ImuChunkEntity> imuChunks,
   }) {
     final archive = Archive()
+      ..addFile(ArchiveFile.string('manifest.json', manifestJson))
       ..addFile(ArchiveFile.string('session_summary.json', summaryJson))
       ..addFile(ArchiveFile.string('gps.csv', csv))
       ..addFile(ArchiveFile.string('track.gpx', gpx))
       ..addFile(ArchiveFile.string('track.geojson', geoJson))
+      ..addFile(ArchiveFile.string('derived_metrics.csv', derivedMetricsCsv))
+      ..addFile(ArchiveFile.string('derived_metrics.json', derivedMetricsJson))
       ..addFile(ArchiveFile.string('diagnostics.json', diagnosticsJson));
+    for (final chunk in imuChunks) {
+      archive.addFile(
+        ArchiveFile(
+          _imuChunkFileName(chunk),
+          chunk.payload.length,
+          chunk.payload,
+        ),
+      );
+    }
     return ZipEncoder().encode(archive);
+  }
+
+  String _buildManifestJson({
+    required SessionSummaryEntity summary,
+    required DiagnosticsSnapshotEntity diagnostics,
+    required List<ImuChunkEntity> imuChunks,
+    required List<DerivedMetricEntity> derivedMetrics,
+  }) {
+    final payloadFormats =
+        imuChunks
+            .map((chunk) => chunk.payloadFormat)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
+    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+      'schema': 'vkr-regatta-export-bundle-v1',
+      'sessionId': summary.sessionId,
+      'raceId': summary.raceId,
+      'generatedAtUtc': diagnostics.generatedAtUtc.toIso8601String(),
+      'targetGpsHz': 1.0,
+      'targetImuHz': 50.0,
+      'averageGpsRateHz': diagnostics.averageGpsRateHz,
+      'averageImuRateHz': diagnostics.averageImuRateHz,
+      'gpsPointCount': summary.gpsPointCount,
+      'imuChunkCount': imuChunks.length,
+      'imuEventCount': summary.imuSampleCount,
+      'imuPayloadFormats': payloadFormats,
+      'derivedMetricCount': derivedMetrics.length,
+      'diagnosticsTag': diagnostics.sessionId == null
+          ? null
+          : 'session-${diagnostics.sessionId}',
+      'files': <String>[
+        'session_summary.json',
+        'gps.csv',
+        'track.gpx',
+        'track.geojson',
+        'derived_metrics.csv',
+        'derived_metrics.json',
+        'diagnostics.json',
+        ...imuChunks.map(_imuChunkFileName),
+      ],
+    });
+  }
+
+  String _imuChunkFileName(ImuChunkEntity chunk) {
+    final stamp = chunk.capturedAtUtc
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    return 'imu_chunks/imu_${chunk.id ?? stamp}.bin';
   }
 
   String _summaryJson(SessionSummaryEntity summary) {
@@ -410,6 +504,32 @@ class ExportRepositoryImpl implements ExportRepository {
       );
     }
     return buffer.toString();
+  }
+
+  String _buildDerivedMetricsCsv(List<DerivedMetricEntity> metrics) {
+    final buffer = StringBuffer()
+      ..writeln('timestamp_utc,metric_type,metric_value,unit');
+    for (final metric in metrics.reversed) {
+      buffer.writeln(
+        '${metric.timestampUtc.toIso8601String()},${metric.metricType},${metric.metricValue},${metric.unit ?? ''}',
+      );
+    }
+    return buffer.toString();
+  }
+
+  String _buildDerivedMetricsJson(List<DerivedMetricEntity> metrics) {
+    return const JsonEncoder.withIndent('  ').convert(
+      metrics.reversed
+          .map((metric) {
+            return <String, Object?>{
+              'timestampUtc': metric.timestampUtc.toIso8601String(),
+              'metricType': metric.metricType,
+              'metricValue': metric.metricValue,
+              'unit': metric.unit,
+            };
+          })
+          .toList(growable: false),
+    );
   }
 
   String _buildGpx(List<TrackingPointEntity> gpsPoints) {

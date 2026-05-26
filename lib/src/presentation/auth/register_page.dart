@@ -156,9 +156,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       children: [
                         Row(
                           children: [
-                            Radio<UserRole>(
-                              value: UserRole.participant,
-                            ),
+                            Radio<UserRole>(value: UserRole.participant),
                             const SizedBox(width: 8),
                             const Text('Участник'),
                           ],
@@ -166,9 +164,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                         Row(
                           children: [
-                            Radio<UserRole>(
-                              value: UserRole.judge,
-                            ),
+                            Radio<UserRole>(value: UserRole.judge),
                             const SizedBox(width: 8),
                             const Text('Судья'),
                           ],

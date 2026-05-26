@@ -65,8 +65,7 @@ class _LoginPageState extends State<LoginPage> {
                       labelText: 'Логин',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) =>
-                        (value == null || value.isEmpty)
+                    validator: (value) => (value == null || value.isEmpty)
                         ? 'Введите логин'
                         : null,
                   ),
@@ -78,8 +77,7 @@ class _LoginPageState extends State<LoginPage> {
                       labelText: 'Пароль',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) =>
-                        (value == null || value.isEmpty)
+                    validator: (value) => (value == null || value.isEmpty)
                         ? 'Введите пароль'
                         : null,
                   ),

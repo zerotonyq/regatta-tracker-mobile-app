@@ -137,7 +137,7 @@ void main() {
             isA<JudgeFlowFailure>().having(
               (error) => error.message,
               'message',
-              contains('already been started locally'),
+              contains('уже запущена'),
             ),
           ),
         );
@@ -156,6 +156,7 @@ void main() {
             lastRaceId: 77,
             status: JudgeRaceStatus.created,
           ),
+          initialActions: _startReadyActions(77),
         );
         final service = JudgeRaceFlowService(
           judgeRaceRepository: repository,
@@ -167,7 +168,10 @@ void main() {
         expect(result.context.status, JudgeRaceStatus.started);
         expect(localRepository.context.status, JudgeRaceStatus.started);
         expect(
-          localRepository.actions.map((action) => action.eventType),
+          localRepository.actions
+              .map((action) => action.eventType)
+              .toList()
+              .sublist(localRepository.actions.length - 2),
           <String>['start_requested', 'race_started'],
         );
       },
@@ -194,7 +198,7 @@ void main() {
             isA<JudgeFlowFailure>().having(
               (error) => error.message,
               'message',
-              contains('already been finished locally'),
+              contains('уже завершена'),
             ),
           ),
         );
@@ -207,13 +211,20 @@ void main() {
         judgeRaceRepository: _FakeJudgeRaceRepository(
           startError: ApiException(statusCode: 401, message: 'auth expired'),
         ),
-        judgeLocalRepository: _FakeJudgeLocalRepository(),
+        judgeLocalRepository: _FakeJudgeLocalRepository(
+          initialActions: _startReadyActions(1),
+        ),
       );
       final service403 = JudgeRaceFlowService(
         judgeRaceRepository: _FakeJudgeRaceRepository(
           endError: ApiException(statusCode: 403, message: 'forbidden'),
         ),
-        judgeLocalRepository: _FakeJudgeLocalRepository(),
+        judgeLocalRepository: _FakeJudgeLocalRepository(
+          initialContext: const JudgeRaceContextEntity(
+            lastRaceId: 1,
+            status: JudgeRaceStatus.started,
+          ),
+        ),
       );
 
       await expectLater(
@@ -222,7 +233,7 @@ void main() {
           isA<JudgeFlowFailure>().having(
             (error) => error.message,
             'message',
-            'Judge session expired. Please sign in again.',
+            'Сессия судьи истекла. Войдите снова.',
           ),
         ),
       );
@@ -232,7 +243,7 @@ void main() {
           isA<JudgeFlowFailure>().having(
             (error) => error.message,
             'message',
-            'You do not have permission to perform this judge action.',
+            'Недостаточно прав для этого действия судьи.',
           ),
         ),
       );
@@ -243,7 +254,9 @@ void main() {
         judgeRaceRepository: _FakeJudgeRaceRepository(
           startError: ApiException(statusCode: 409, message: 'already active'),
         ),
-        judgeLocalRepository: _FakeJudgeLocalRepository(),
+        judgeLocalRepository: _FakeJudgeLocalRepository(
+          initialActions: _startReadyActions(5),
+        ),
       );
 
       await expectLater(
@@ -252,37 +265,81 @@ void main() {
           isA<JudgeFlowFailure>().having(
             (error) => error.message,
             'message',
-            'This race is already in the requested state on the backend.',
+            'Гонка уже находится в запрошенном состоянии на сервере.',
           ),
         ),
       );
     });
 
-    test('scheduleStartProcedure stores local countdown configuration', () async {
-      final localRepository = _FakeJudgeLocalRepository(
-        initialContext: const JudgeRaceContextEntity(
-          lastRaceId: 55,
-          status: JudgeRaceStatus.created,
-        ),
-      );
-      final service = JudgeRaceFlowService(
-        judgeRaceRepository: _FakeJudgeRaceRepository(),
-        judgeLocalRepository: localRepository,
-      );
+    test(
+      'scheduleStartProcedure stores local countdown configuration',
+      () async {
+        final localRepository = _FakeJudgeLocalRepository(
+          initialContext: const JudgeRaceContextEntity(
+            lastRaceId: 55,
+            status: JudgeRaceStatus.created,
+          ),
+        );
+        final service = JudgeRaceFlowService(
+          judgeRaceRepository: _FakeJudgeRaceRepository(),
+          judgeLocalRepository: localRepository,
+        );
 
-      final result = await service.scheduleStartProcedure(
-        raceId: 55,
-        duration: const Duration(minutes: 5),
-      );
+        final result = await service.scheduleStartProcedure(
+          raceId: 55,
+          duration: const Duration(minutes: 5),
+        );
 
-      expect(result.context.lastRaceId, 55);
-      expect(localRepository.actions.last.eventType, 'start_procedure_configured');
-      expect(
-        localRepository.actions.last.payloadJson,
-        contains('"durationSeconds":300'),
-      );
-    });
+        expect(result.context.lastRaceId, 55);
+        expect(
+          localRepository.actions.last.eventType,
+          'start_procedure_configured',
+        );
+        expect(
+          localRepository.actions.last.payloadJson,
+          contains('"durationSeconds":300'),
+        );
+      },
+    );
   });
+}
+
+List<JudgeActionEntity> _startReadyActions(int raceId) {
+  return <JudgeActionEntity>[
+    JudgeActionEntity(
+      eventId: 'configured-$raceId',
+      raceId: raceId,
+      eventType: 'start_procedure_configured',
+      payloadJson:
+          '{"durationSeconds":300,"startAtUtc":"2026-04-29T12:05:00.000Z"}',
+      createdAtUtc: DateTime.utc(2026, 4, 29, 12, 0, 0),
+      syncStatus: 'synced',
+    ),
+    JudgeActionEntity(
+      eventId: 'warning-$raceId',
+      raceId: raceId,
+      eventType: 'start_procedure_signal',
+      payloadJson: '{"signalType":"warning"}',
+      createdAtUtc: DateTime.utc(2026, 4, 29, 12, 1, 0),
+      syncStatus: 'synced',
+    ),
+    JudgeActionEntity(
+      eventId: 'preparatory-$raceId',
+      raceId: raceId,
+      eventType: 'start_procedure_signal',
+      payloadJson: '{"signalType":"preparatory"}',
+      createdAtUtc: DateTime.utc(2026, 4, 29, 12, 4, 0),
+      syncStatus: 'synced',
+    ),
+    JudgeActionEntity(
+      eventId: 'start-$raceId',
+      raceId: raceId,
+      eventType: 'start_procedure_signal',
+      payloadJson: '{"signalType":"start"}',
+      createdAtUtc: DateTime.utc(2026, 4, 29, 12, 5, 0),
+      syncStatus: 'synced',
+    ),
+  ];
 }
 
 class _FakeJudgeRaceRepository implements JudgeRaceRepository {

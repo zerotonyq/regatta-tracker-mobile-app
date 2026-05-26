@@ -30,16 +30,17 @@ Tracking profiles are fixed at this stage:
 - `markRoundingPrecision`
 - `paused`
 
-## Decisions fixed in step 06
+## Production decisions
 
 - `sessionId` ownership stays on the Flutter side for now. The app creates the local tracking session first, then passes its id into the bridge as a string.
-- The bridge boundary is already shaped for future native buffering and background collection, but step 06 still keeps durable track storage in the Flutter app database.
+- The bridge uses native buffering for background collection and streams lightweight notifications with GPS samples and IMU chunk references to Flutter.
 - Desktop, web, and unit tests use `FakeRegattaSensorBridgePlatform`, while Android/iOS receive a method-channel stub that already speaks the same contract.
 
 ## Current state
 
-This package is intentionally a scaffold, not a production sensor implementation yet:
+This package now contains production-oriented mobile collectors plus a fake implementation for tests:
 
-- Android and iOS return in-memory stub status/health payloads.
-- Sample streaming is wired structurally, but native sample capture is not implemented in this step.
-- The app-side repository and tracking controller are already integrated against the abstraction so steps 07 and 08 can focus on platform work without reshaping Flutter code again.
+- Android runs a foreground service, requests high-accuracy fused location updates at 1 Hz, records accelerometer/gyroscope/magnetometer events, writes GPS NDJSON and 1-second IMU binary chunks, and emits health/rate diagnostics.
+- iOS uses `CLLocationManager` and `CMMotionManager`, enables background location mode in the host app, records GPS NDJSON and 1-second IMU binary chunks, and emits the same health/sample contract.
+- `averageImuRateHz` is reported as a per-sensor rate. `receivedImuSamples` and IMU chunk `sampleCount` are event counts, because accelerometer, gyroscope, and magnetometer events can arrive independently.
+- Flutter imports native chunk references into Drift/SQLite and keeps SQLite as the authoritative application cache for sync, export, and analysis.

@@ -225,7 +225,8 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
                   children: [
                     _SignalButton(
                       label: 'Стартовая процедура 5 мин',
-                      onPressed: raceId == null ||
+                      onPressed:
+                          raceId == null ||
                               flowController.loading ||
                               !sequence.canScheduleFiveMinute
                           ? null
@@ -235,7 +236,8 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
                     ),
                     _SignalButton(
                       label: 'Стартовая процедура 1 мин',
-                      onPressed: raceId == null ||
+                      onPressed:
+                          raceId == null ||
                               flowController.loading ||
                               !sequence.canScheduleOneMinute
                           ? null
@@ -252,7 +254,8 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
                   children: [
                     _SignalButton(
                       label: 'Сигнал: предупредительный',
-                      onPressed: raceId == null ||
+                      onPressed:
+                          raceId == null ||
                               flowController.loading ||
                               !sequence.canSendWarning
                           ? null
@@ -260,7 +263,8 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
                     ),
                     _SignalButton(
                       label: 'Сигнал: подготовительный',
-                      onPressed: raceId == null ||
+                      onPressed:
+                          raceId == null ||
                               flowController.loading ||
                               !sequence.canSendPreparatory
                           ? null
@@ -268,7 +272,8 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
                     ),
                     _SignalButton(
                       label: 'Сигнал: старт',
-                      onPressed: raceId == null ||
+                      onPressed:
+                          raceId == null ||
                               flowController.loading ||
                               !sequence.canSendStart
                           ? null

@@ -53,9 +53,10 @@ class MethodChannelRegattaSensorBridge extends RegattaSensorBridgePlatform {
 
   @override
   Future<HealthEvent> getTrackingHealth({String? sessionId}) async {
-    final payload = await _invokeMapMethod('getTrackingHealth', <String, Object?>{
-      'sessionId': sessionId,
-    });
+    final payload = await _invokeMapMethod(
+      'getTrackingHealth',
+      <String, Object?>{'sessionId': sessionId},
+    );
     if (payload == null) {
       throw SensorBridgeException(
         const NativeError(

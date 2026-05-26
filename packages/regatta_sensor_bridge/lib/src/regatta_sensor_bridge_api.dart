@@ -321,6 +321,8 @@ class HealthEvent {
     this.gpsAccuracyMeters,
     this.receivedGpsSamples,
     this.receivedImuSamples,
+    this.targetGpsHz,
+    this.targetImuHz,
     this.averageGpsRateHz,
     this.averageImuRateHz,
     this.lastGpsSensorTimestamp,
@@ -347,6 +349,8 @@ class HealthEvent {
   final double? gpsAccuracyMeters;
   final int? receivedGpsSamples;
   final int? receivedImuSamples;
+  final double? targetGpsHz;
+  final double? targetImuHz;
   final double? averageGpsRateHz;
   final double? averageImuRateHz;
   final DateTime? lastGpsSensorTimestamp;
@@ -374,6 +378,8 @@ class HealthEvent {
       'gpsAccuracyMeters': gpsAccuracyMeters,
       'receivedGpsSamples': receivedGpsSamples,
       'receivedImuSamples': receivedImuSamples,
+      'targetGpsHz': targetGpsHz,
+      'targetImuHz': targetImuHz,
       'averageGpsRateHz': averageGpsRateHz,
       'averageImuRateHz': averageImuRateHz,
       'lastGpsSensorTimestamp': lastGpsSensorTimestamp
@@ -411,6 +417,8 @@ class HealthEvent {
       gpsAccuracyMeters: map.nullableDoubleValue('gpsAccuracyMeters'),
       receivedGpsSamples: map.nullableIntValue('receivedGpsSamples'),
       receivedImuSamples: map.nullableIntValue('receivedImuSamples'),
+      targetGpsHz: map.nullableDoubleValue('targetGpsHz'),
+      targetImuHz: map.nullableDoubleValue('targetImuHz'),
       averageGpsRateHz: map.nullableDoubleValue('averageGpsRateHz'),
       averageImuRateHz: map.nullableDoubleValue('averageImuRateHz'),
       lastGpsSensorTimestamp: map.nullableDateTimeValue(

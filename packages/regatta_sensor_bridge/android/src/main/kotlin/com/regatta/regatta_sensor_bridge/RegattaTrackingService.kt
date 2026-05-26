@@ -471,8 +471,10 @@ class RegattaTrackingService : Service(), SensorEventListener {
             "gpsAccuracyMeters" to null,
             "receivedGpsSamples" to receivedGpsSamples,
             "receivedImuSamples" to receivedImuSamples,
+            "targetGpsHz" to activeConfig?.gpsHz,
+            "targetImuHz" to activeConfig?.imuHz,
             "averageGpsRateHz" to averageRateHz(receivedGpsSamples, gpsStartMillis),
-            "averageImuRateHz" to averageRateHz(receivedImuSamples, imuStartMillis),
+            "averageImuRateHz" to averageImuRateHz(),
             "lastGpsSensorTimestamp" to lastGpsSensorTimestampIso,
             "lastImuSensorTimestamp" to lastImuSensorTimestampIso,
             "serviceRestarts" to serviceRestarts,
@@ -579,6 +581,19 @@ class RegattaTrackingService : Service(), SensorEventListener {
         return sampleCount / elapsedSeconds
     }
 
+    private fun averageImuRateHz(): Double? {
+        val rawRate = averageRateHz(receivedImuSamples, imuStartMillis) ?: return null
+        return rawRate / activeImuSensorCount()
+    }
+
+    private fun activeImuSensorCount(): Int {
+        var count = 0
+        if (accelerometer != null) count += 1
+        if (gyroscope != null) count += 1
+        if (magnetometer != null) count += 1
+        return max(1, count)
+    }
+
     private fun isGpsEnabled(): Boolean {
         val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         return manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
@@ -648,6 +663,8 @@ internal fun defaultHealthPayload(
         "gpsAccuracyMeters" to null,
         "receivedGpsSamples" to 0,
         "receivedImuSamples" to 0,
+        "targetGpsHz" to null,
+        "targetImuHz" to null,
         "averageGpsRateHz" to null,
         "averageImuRateHz" to null,
         "lastGpsSensorTimestamp" to null,

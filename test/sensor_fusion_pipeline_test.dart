@@ -105,6 +105,118 @@ void main() {
         lessThan(2.0),
       );
     });
+
+    test('flags magnetic instability when magnetometer norm is noisy', () {
+      const useCase = ProcessImuChunkUseCase();
+      final noisyEvents = <_EncodedEvent>[
+        _EncodedEvent(1, 4_000_000_000, 0, 0, 9.80665, 3),
+        _EncodedEvent(2, 4_000_000_001, 10, 0, 0, 3),
+        _EncodedEvent(4, 4_000_000_002, 0, 0, 0, 3),
+        _EncodedEvent(1, 4_020_000_000, 0, 0, 9.80665, 3),
+        _EncodedEvent(2, 4_020_000_001, 80, 0, 0, 3),
+        _EncodedEvent(4, 4_020_000_002, 0, 0, 0, 3),
+        _EncodedEvent(1, 4_040_000_000, 0, 0, 9.80665, 3),
+        _EncodedEvent(2, 4_040_000_001, 12, 0, 0, 3),
+        _EncodedEvent(4, 4_040_000_002, 0, 0, 0, 3),
+        _EncodedEvent(1, 4_060_000_000, 0, 0, 9.80665, 3),
+        _EncodedEvent(2, 4_060_000_001, 90, 0, 0, 3),
+        _EncodedEvent(4, 4_060_000_002, 0, 0, 0, 3),
+      ];
+
+      final result = useCase.execute(
+        chunk: ImuChunkEntity(
+          sessionId: 5,
+          capturedAtUtc: DateTime.utc(2026, 4, 29, 16, 10),
+          chunkStartMonotonicNs: 0,
+          sampleCount: noisyEvents.length,
+          samplingHz: 50,
+          payload: _encodeSensorEvents(noisyEvents),
+          payloadFormat: 'imu-sensor-event-le-v1',
+        ),
+        currentState: const FusionSessionState(hasCalibration: true),
+      );
+
+      expect(_metricValue(result.metrics, 'quality_magnetic_instability'), 1);
+    });
+
+    test('flags stale data when GPS context is missing', () {
+      const useCase = ProcessImuChunkUseCase();
+      final result = useCase.execute(
+        chunk: ImuChunkEntity(
+          sessionId: 6,
+          capturedAtUtc: DateTime.utc(2026, 4, 29, 16, 20),
+          chunkStartMonotonicNs: 0,
+          sampleCount: 18,
+          samplingHz: 50,
+          payload: _encodeSensorEvents(<_EncodedEvent>[
+            ..._stationaryEvents(baseTimestampNs: 5_000_000_000),
+            ..._stationaryEvents(baseTimestampNs: 5_200_000_000),
+          ]),
+          payloadFormat: 'imu-sensor-event-le-v1',
+        ),
+        currentState: const FusionSessionState(hasCalibration: true),
+      );
+
+      expect(_metricValue(result.metrics, 'quality_stale_data'), 1);
+    });
+
+    test('does not validate heading by GPS when boat speed is too low', () {
+      const useCase = ProcessImuChunkUseCase();
+      final result = useCase.execute(
+        chunk: ImuChunkEntity(
+          sessionId: 7,
+          capturedAtUtc: DateTime.utc(2026, 4, 29, 16, 30),
+          chunkStartMonotonicNs: 0,
+          sampleCount: 18,
+          samplingHz: 50,
+          payload: _encodeSensorEvents(<_EncodedEvent>[
+            ..._stationaryEvents(baseTimestampNs: 6_000_000_000),
+            ..._stationaryEvents(baseTimestampNs: 6_200_000_000),
+          ]),
+          payloadFormat: 'imu-sensor-event-le-v1',
+        ),
+        currentState: const FusionSessionState(hasCalibration: true),
+        recentGpsPoints: <TrackingPointEntity>[
+          TrackingPointEntity(
+            timestampUtc: DateTime.utc(2026, 4, 29, 16, 30),
+            longitude: 30.001,
+            latitude: 60.001,
+            speedMetersPerSecond: 0.5,
+          ),
+          TrackingPointEntity(
+            timestampUtc: DateTime.utc(2026, 4, 29, 16, 29, 59),
+            longitude: 30.0,
+            latitude: 60.0,
+            speedMetersPerSecond: 0.5,
+          ),
+        ],
+      );
+
+      expect(
+        _metricValue(result.metrics, 'quality_heading_validated_by_gps'),
+        0,
+      );
+    });
+
+    test('rejects incomplete IMU payload records', () {
+      const useCase = ProcessImuChunkUseCase();
+
+      expect(
+        () => useCase.execute(
+          chunk: ImuChunkEntity(
+            sessionId: 8,
+            capturedAtUtc: DateTime.utc(2026, 4, 29, 16, 40),
+            chunkStartMonotonicNs: 0,
+            sampleCount: 1,
+            samplingHz: 50,
+            payload: Uint8List.fromList(const <int>[1, 2, 3]),
+            payloadFormat: 'imu-sensor-event-le-v1',
+          ),
+          currentState: const FusionSessionState(),
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 
   test(

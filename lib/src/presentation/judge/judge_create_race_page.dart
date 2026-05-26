@@ -98,7 +98,9 @@ class _JudgeCreateRacePageState extends State<JudgeCreateRacePage> {
                 const SizedBox(height: 12),
                 _SelectedParticipantsSection(
                   users: widget.controller.availableParticipants
-                      .where((user) => _selectedParticipantIds.contains(user.id))
+                      .where(
+                        (user) => _selectedParticipantIds.contains(user.id),
+                      )
                       .toList(),
                   onRemove: (user) => _removeParticipant(user.id),
                 ),
@@ -106,7 +108,9 @@ class _JudgeCreateRacePageState extends State<JudgeCreateRacePage> {
                 _UserCatalogSection(
                   title: 'Доступные участники',
                   users: widget.controller.availableParticipants
-                      .where((user) => !_selectedParticipantIds.contains(user.id))
+                      .where(
+                        (user) => !_selectedParticipantIds.contains(user.id),
+                      )
                       .toList(),
                   emptyText: 'Сервис управления пока не вернул участников.',
                   actionTooltipBuilder: (user) => 'Добавить id ${user.id}',

@@ -43,9 +43,7 @@ class JudgeStartSequenceState {
   bool get canSendStart =>
       !hasStartSignal &&
       ((hasOneMinuteProcedure && !hasWarningSignal && !hasPreparatorySignal) ||
-          (hasFiveMinuteProcedure &&
-              hasWarningSignal &&
-              hasPreparatorySignal));
+          (hasFiveMinuteProcedure && hasWarningSignal && hasPreparatorySignal));
 
   bool get canStartRace => hasStartSignal;
 
@@ -67,10 +65,13 @@ class JudgeStartSequenceState {
     bool hasPreparatorySignal = false;
     bool hasStartSignal = false;
 
-    final orderedActions = actions
-        .where((action) => action.raceId == raceId)
-        .toList(growable: false)
-      ..sort((left, right) => left.createdAtUtc.compareTo(right.createdAtUtc));
+    final orderedActions =
+        actions
+            .where((action) => action.raceId == raceId)
+            .toList(growable: false)
+          ..sort(
+            (left, right) => left.createdAtUtc.compareTo(right.createdAtUtc),
+          );
 
     for (final action in orderedActions) {
       if (action.eventType == 'start_procedure_configured') {

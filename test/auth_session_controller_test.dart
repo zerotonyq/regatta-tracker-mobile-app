@@ -158,11 +158,9 @@ typedef _RefreshHandler =
     });
 
 class _FakeAuthApi implements AuthApi {
-  _FakeAuthApi({
-    _LoginHandler? onLogin,
-    required _RefreshHandler onRefresh,
-  }) : _onLogin = onLogin,
-       _onRefresh = onRefresh;
+  _FakeAuthApi({_LoginHandler? onLogin, required _RefreshHandler onRefresh})
+    : _onLogin = onLogin,
+      _onRefresh = onRefresh;
 
   final _LoginHandler? _onLogin;
   final _RefreshHandler _onRefresh;

@@ -67,7 +67,8 @@ class _ParticipantDashboardPageState extends State<ParticipantDashboardPage> {
       _activeRaceError = null;
     });
     try {
-      final activeRace = await widget.managementRemoteDataSource.getActiveRace();
+      final activeRace = await widget.managementRemoteDataSource
+          .getActiveRace();
       if (!mounted) {
         return;
       }
@@ -281,12 +282,27 @@ class _HealthPanel extends StatelessWidget {
             Text(
               'Точность GPS: ${health.gpsAccuracyMeters?.toStringAsFixed(1) ?? 'н/д'} м',
             ),
+            Text(
+              'Частота GPS: ${_formatRate(health.averageGpsRateHz)} / ${_formatRate(health.targetGpsHz)}',
+            ),
+            Text(
+              'Частота IMU: ${_formatRate(health.averageImuRateHz)} / ${_formatRate(health.targetImuHz)}',
+            ),
+            if (health.hasTelemetryWarning)
+              Text(
+                'Предупреждение: фактическая частота датчиков ниже целевой.',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             Text('Ожидают досылки: ${health.pendingSyncCount}'),
             Text('Потеряно сэмплов: ${health.droppedSampleCount}'),
           ],
         ),
       ),
     );
+  }
+
+  String _formatRate(double? value) {
+    return value == null ? 'н/д' : '${value.toStringAsFixed(1)} Гц';
   }
 }
 

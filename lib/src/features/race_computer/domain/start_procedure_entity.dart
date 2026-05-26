@@ -26,10 +26,4 @@ class StartProcedureEntity {
   bool get isActive => remainingSeconds > 0;
 }
 
-enum StartProcedureCue {
-  none,
-  warning,
-  preparatory,
-  oneMinute,
-  start,
-}
+enum StartProcedureCue { none, warning, preparatory, oneMinute, start }
