@@ -32,18 +32,8 @@ class JudgeDashboardPage extends StatefulWidget {
 class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
   static const _logoAsset = 'assets/images/regatracker_logo.svg';
 
-  final _raceIdController = TextEditingController();
-
-  @override
-  void dispose() {
-    _raceIdController.dispose();
-    super.dispose();
-  }
-
-  int? get _typedRaceId => int.tryParse(_raceIdController.text.trim());
-
   int? _resolveRaceId() {
-    return _typedRaceId ?? widget.controller.currentRaceId;
+    return widget.controller.currentRaceId;
   }
 
   JudgeStartSequenceState _sequenceState(int raceId) {
@@ -158,6 +148,10 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
           builder: (context, _) {
             final flowController = widget.controller;
             final raceId = _resolveRaceId();
+            final participantLabels = <int, String>{
+              for (final participant in flowController.availableParticipants)
+                participant.id: '${participant.name} (${participant.login})',
+            };
 
             final sequence = raceId == null
                 ? JudgeStartSequenceState.empty
@@ -171,7 +165,6 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
             );
 
             final controlPanel = _RaceControlPanel(
-              raceIdController: _raceIdController,
               flowController: flowController,
               raceId: raceId,
               sequence: sequence,
@@ -186,7 +179,6 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
                   widget.onEditCourseTap(selectedRaceId);
                 }
               },
-              onRaceIdChanged: () => setState(() {}),
               onStartRace: _startRace,
               onEndRace: _endRace,
               onScheduleFive: () {
@@ -200,7 +192,10 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
               onPreparatory: () => _recordSignal('preparatory'),
               onStartSignal: () => _recordSignal('start'),
             );
-            final resultsCard = _ResultsCard(results: flowController.raceResults);
+            final resultsCard = _ResultsCard(
+              results: flowController.raceResults,
+              participantLabels: participantLabels,
+            );
             final actionsCard = _RecentActionsTimeline(
               actions: flowController.recentActions,
             );
@@ -416,7 +411,6 @@ class _StatusCard extends StatelessWidget {
 
 class _RaceControlPanel extends StatelessWidget {
   const _RaceControlPanel({
-    required this.raceIdController,
     required this.flowController,
     required this.raceId,
     required this.sequence,
@@ -426,7 +420,6 @@ class _RaceControlPanel extends StatelessWidget {
     required this.canEditCourse,
     required this.onCreateRaceTap,
     required this.onEditCourseTap,
-    required this.onRaceIdChanged,
     required this.onStartRace,
     required this.onEndRace,
     required this.onScheduleFive,
@@ -437,7 +430,6 @@ class _RaceControlPanel extends StatelessWidget {
     required this.onStartSignal,
   });
 
-  final TextEditingController raceIdController;
   final JudgeRaceController flowController;
   final int? raceId;
   final JudgeStartSequenceState sequence;
@@ -447,7 +439,6 @@ class _RaceControlPanel extends StatelessWidget {
   final bool canEditCourse;
   final VoidCallback onCreateRaceTap;
   final VoidCallback onEditCourseTap;
-  final VoidCallback onRaceIdChanged;
   final VoidCallback onStartRace;
   final VoidCallback onEndRace;
   final VoidCallback onScheduleFive;
@@ -489,16 +480,6 @@ class _RaceControlPanel extends StatelessWidget {
             icon: Icons.add_rounded,
             loading: flowController.loading,
             onPressed: onCreateRaceTap,
-          ),
-
-          const SizedBox(height: 14),
-
-          _RaceIdField(
-            controller: raceIdController,
-            helperText: flowController.currentRaceId == null
-                ? 'Введите ID гонки для управления.'
-                : 'Пустое поле использует гонку ${flowController.currentRaceId}.',
-            onChanged: onRaceIdChanged,
           ),
 
           const SizedBox(height: 14),
@@ -548,46 +529,41 @@ class _RaceControlPanel extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _SignalButton(
-                label: '5 мин',
-                onPressed: raceId == null ||
-                    flowController.loading ||
-                    !sequence.canScheduleFiveMinute
-                    ? null
-                    : onScheduleFive,
-              ),
-              _SignalButton(
-                label: '1 мин',
-                onPressed: raceId == null ||
-                    flowController.loading ||
-                    !sequence.canScheduleOneMinute
-                    ? null
-                    : onScheduleOne,
-              ),
-              _SignalButton(
-                label: 'Warning',
-                onPressed: raceId == null ||
-                    flowController.loading ||
-                    !sequence.canSendWarning
-                    ? null
-                    : onWarning,
-              ),
-              _SignalButton(
-                label: 'Preparatory',
-                onPressed: raceId == null ||
-                    flowController.loading ||
-                    !sequence.canSendPreparatory
-                    ? null
-                    : onPreparatory,
-              ),
-              _SignalButton(
-                label: 'Start signal',
-                onPressed: raceId == null ||
-                    flowController.loading ||
-                    !sequence.canSendStart
-                    ? null
-                    : onStartSignal,
-              ),
+              if (raceId != null &&
+                  !flowController.loading &&
+                  sequence.canScheduleFiveMinute)
+                _SignalButton(
+                  label: '5 минут',
+                  onPressed: onScheduleFive,
+                ),
+              if (raceId != null &&
+                  !flowController.loading &&
+                  sequence.canScheduleOneMinute)
+                _SignalButton(
+                  label: '1 минута',
+                  onPressed: onScheduleOne,
+                ),
+              if (raceId != null &&
+                  !flowController.loading &&
+                  sequence.canSendWarning)
+                _SignalButton(
+                  label: 'Предупреждение',
+                  onPressed: onWarning,
+                ),
+              if (raceId != null &&
+                  !flowController.loading &&
+                  sequence.canSendPreparatory)
+                _SignalButton(
+                  label: 'Подготовительный',
+                  onPressed: onPreparatory,
+                ),
+              if (raceId != null &&
+                  !flowController.loading &&
+                  sequence.canSendStart)
+                _SignalButton(
+                  label: 'Стартовый сигнал',
+                  onPressed: onStartSignal,
+                ),
             ],
           ),
 
@@ -615,63 +591,6 @@ class _RaceControlPanel extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _RaceIdField extends StatelessWidget {
-  const _RaceIdField({
-    required this.controller,
-    required this.helperText,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String helperText;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      onChanged: (_) => onChanged(),
-      style: const TextStyle(
-        fontSize: 17,
-        color: _AppColors.navy,
-        fontWeight: FontWeight.w600,
-      ),
-      decoration: InputDecoration(
-        hintText: 'ID гонки',
-        helperText: helperText,
-        helperMaxLines: 2,
-        prefixIcon: const Icon(
-          Icons.tag_rounded,
-          color: _AppColors.navy,
-          size: 24,
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 18,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(
-            color: _AppColors.cyan,
-            width: 1.6,
-          ),
-        ),
       ),
     );
   }
@@ -724,9 +643,11 @@ class _RaceTile extends StatelessWidget {
 class _ResultsCard extends StatelessWidget {
   const _ResultsCard({
     required this.results,
+    required this.participantLabels,
   });
 
   final RaceResultsResponseDto? results;
+  final Map<int, String> participantLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -778,7 +699,10 @@ class _ResultsCard extends StatelessWidget {
               ...data.participants.map(
                     (item) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: _ParticipantResultTile(item: item),
+                  child: _ParticipantResultTile(
+                    item: item,
+                    participantLabel: participantLabels[item.userId],
+                  ),
                 ),
               ),
           ],
@@ -791,9 +715,11 @@ class _ResultsCard extends StatelessWidget {
 class _ParticipantResultTile extends StatelessWidget {
   const _ParticipantResultTile({
     required this.item,
+    required this.participantLabel,
   });
 
   final ParticipantProgressDto item;
+  final String? participantLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -816,7 +742,7 @@ class _ParticipantResultTile extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Участник ${item.userId}',
+                  participantLabel ?? 'Участник (логин недоступен)',
                   style: const TextStyle(
                     color: _AppColors.navy,
                     fontSize: 16,

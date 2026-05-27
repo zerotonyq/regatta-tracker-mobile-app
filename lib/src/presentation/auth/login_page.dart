@@ -50,7 +50,6 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     const navy = Color(0xFF061B3A);
     const cyan = Color(0xFF00B8CC);
-    const textMuted = Color(0xFF667085);
     const background = Color(0xFFF8FBFD);
 
     return Scaffold(
@@ -59,6 +58,9 @@ class _LoginPageState extends State<LoginPage> {
         child: AnimatedBuilder(
           animation: widget.controller,
           builder: (context, _) {
+            final screenWidth = MediaQuery.sizeOf(context).width;
+            final brandFontSize = screenWidth < 360 ? 44.0 : 56.0;
+            final titleFontSize = screenWidth < 360 ? 34.0 : 40.0;
             return Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -85,10 +87,12 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 20),
 
-                        const Text(
+                        Text(
                           'REGATracker',
+                          maxLines: 1,
+                          softWrap: false,
                           style: TextStyle(
-                            fontSize: 56,
+                            fontSize: brandFontSize,
                             fontWeight: FontWeight.w800,
                             color: navy,
                             letterSpacing: -0.8,
@@ -97,10 +101,10 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 20),
 
-                        const Text(
+                        Text(
                           'Вход',
                           style: TextStyle(
-                            fontSize: 40,
+                            fontSize: titleFontSize,
                             fontWeight: FontWeight.w800,
                             color: navy,
                             letterSpacing: -0.8,
