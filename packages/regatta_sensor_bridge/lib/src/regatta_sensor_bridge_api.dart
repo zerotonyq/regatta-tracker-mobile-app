@@ -34,6 +34,10 @@ class RegattaSensorBridge {
     return _platform.getTrackingHealth(sessionId: sessionId);
   }
 
+  Future<GpsSample> getCurrentLocation() {
+    return _platform.getCurrentLocation();
+  }
+
   Future<SessionStatus?> getSessionStatus(String sessionId) {
     return _platform.getSessionStatus(sessionId);
   }

@@ -104,10 +104,7 @@ class _ManagementApi implements ManagementApi {
   }
 
   @override
-  Future<UserListResponseDto> searchUsers({
-    String? role,
-    String? query,
-  }) async {
+  Future<UserListResponseDto> searchUsers({String? role, String? query}) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{r'role': role, r'query': query};
     queryParameters.removeWhere((k, v) => v == null);

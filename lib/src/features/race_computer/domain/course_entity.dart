@@ -7,6 +7,7 @@ class CourseEntity {
     required this.name,
     required this.startLine,
     required this.marks,
+    required this.finishLine,
     required this.updatedAtUtc,
     this.version = 1,
     this.source = 'local_reference',
@@ -16,6 +17,7 @@ class CourseEntity {
   final String name;
   final StartLineEntity startLine;
   final List<MarkEntity> marks;
+  final StartLineEntity finishLine;
   final DateTime updatedAtUtc;
   final int version;
   final String source;
@@ -28,6 +30,7 @@ class CourseEntity {
       'name': name,
       'startLine': startLine.toJson(),
       'marks': marks.map((MarkEntity mark) => mark.toJson()).toList(),
+      'finishLine': finishLine.toJson(),
       'updatedAtUtc': updatedAtUtc.toIso8601String(),
       'version': version,
       'source': source,
@@ -46,6 +49,10 @@ class CourseEntity {
             return MarkEntity.fromJson(item! as Map<String, Object?>);
           })
           .toList(growable: false),
+      finishLine: StartLineEntity.fromJson(
+        (json['finishLine'] ??
+                json['startLine'])! as Map<String, Object?>,
+      ),
       updatedAtUtc: DateTime.parse(json['updatedAtUtc'] as String).toUtc(),
       version: (json['version'] as num?)?.toInt() ?? 1,
       source: json['source'] as String? ?? 'local_reference',

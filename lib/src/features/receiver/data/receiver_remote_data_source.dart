@@ -17,6 +17,7 @@ class ReceiverRemoteDataSource {
     required DateTime timestampUtc,
     required double longitude,
     required double latitude,
+    int? raceId,
   }) async {
     final receiverApi = _receiverApi;
     if (receiverApi == null) {
@@ -32,6 +33,7 @@ class ReceiverRemoteDataSource {
           time: timestampUtc.toUtc().toIso8601String(),
           longitude: longitude,
           latitude: latitude,
+          raceId: raceId,
         ),
       );
     } on DioException catch (error) {

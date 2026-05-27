@@ -11,11 +11,13 @@ import '../features/auth/presentation/auth_session_state.dart';
 import '../features/export/presentation/export_controller.dart';
 import '../features/judge/presentation/judge_race_controller.dart';
 import '../features/race_computer/presentation/race_computer_controller.dart';
+import '../features/track_map/presentation/track_map_controller.dart';
 import '../features/tracking/domain/tracking_session_entity.dart';
 import '../features/tracking/presentation/tracking_session_controller.dart';
 import 'auth/login_page.dart';
 import 'auth/register_page.dart';
 import 'auth/session_restore_page.dart';
+import 'judge/course_editor_page.dart';
 import 'judge/judge_create_race_page.dart';
 import 'judge/judge_dashboard_page.dart';
 import 'participant/participant_dashboard_page.dart';
@@ -27,6 +29,7 @@ enum _FlowScreen {
   register,
   judgeDashboard,
   judgeCreateRace,
+  judgeCourseEditor,
   participantDashboard,
   participantRacing,
   participantHistory,
@@ -49,9 +52,11 @@ class _AppFlowState extends State<AppFlow> {
   late final JudgeRaceController _judgeController;
   late final TrackingSessionController _trackingController;
   late final RaceComputerController _raceComputerController;
+  late final TrackMapController _trackMapController;
   late final ExportController _exportController;
 
   _FlowScreen _screen = _FlowScreen.login;
+  int? _selectedJudgeCourseRaceId;
   bool _hasTriggeredTrackingRestore = false;
   bool _hasTriggeredJudgeRestore = false;
   bool _hasTriggeredPermissionBootstrap = false;
@@ -68,6 +73,7 @@ class _AppFlowState extends State<AppFlow> {
       ..addListener(_handleTrackingState);
     _raceComputerController = widget.dependencies
         .createRaceComputerController();
+    _trackMapController = widget.dependencies.createTrackMapController();
     _exportController = widget.dependencies.createExportController();
     unawaited(_bootstrapPermissionsAndHealth());
     unawaited(widget.dependencies.ensureSyncWorkerStarted());
@@ -82,6 +88,7 @@ class _AppFlowState extends State<AppFlow> {
     _judgeController.dispose();
     _trackingController.dispose();
     _raceComputerController.dispose();
+    _trackMapController.dispose();
     _exportController.dispose();
     unawaited(widget.dependencies.disposeBackgroundTasks());
     super.dispose();
@@ -192,8 +199,10 @@ class _AppFlowState extends State<AppFlow> {
   bool _isProtectedScreen(_FlowScreen screen) {
     return screen == _FlowScreen.judgeDashboard ||
         screen == _FlowScreen.judgeCreateRace ||
+        screen == _FlowScreen.judgeCourseEditor ||
         screen == _FlowScreen.participantDashboard ||
-        screen == _FlowScreen.participantRacing;
+        screen == _FlowScreen.participantRacing ||
+        screen == _FlowScreen.participantHistory;
   }
 
   Future<void> _bootstrapPermissionsAndHealth() async {
@@ -261,6 +270,10 @@ class _AppFlowState extends State<AppFlow> {
         controller: _judgeController,
         onCreateRaceTap: () =>
             setState(() => _screen = _FlowScreen.judgeCreateRace),
+        onEditCourseTap: (raceId) => setState(() {
+          _selectedJudgeCourseRaceId = raceId;
+          _screen = _FlowScreen.judgeCourseEditor;
+        }),
         onLogoutTap: _logout,
       ),
       _FlowScreen.judgeCreateRace => JudgeCreateRacePage(
@@ -268,6 +281,14 @@ class _AppFlowState extends State<AppFlow> {
         controller: _judgeController,
         onBack: () => setState(() => _screen = _FlowScreen.judgeDashboard),
         onCreated: () => setState(() => _screen = _FlowScreen.judgeDashboard),
+      ),
+      _FlowScreen.judgeCourseEditor => CourseEditorPage(
+        raceId: _selectedJudgeCourseRaceId ?? _judgeController.currentRaceId,
+        controller: _raceComputerController,
+        readCurrentTrackingPointUseCase:
+            widget.dependencies.readCurrentTrackingPointUseCase,
+        onBack: () => setState(() => _screen = _FlowScreen.judgeDashboard),
+        onSaved: () => _judgeController.restore(),
       ),
       _FlowScreen.participantDashboard => ParticipantDashboardPage(
         authController: _authController,
@@ -283,6 +304,7 @@ class _AppFlowState extends State<AppFlow> {
       _FlowScreen.participantRacing => RacingModePage(
         controller: _trackingController,
         raceComputerController: _raceComputerController,
+        trackMapController: _trackMapController,
         onBack: () =>
             setState(() => _screen = _FlowScreen.participantDashboard),
       ),

@@ -84,6 +84,13 @@ class AuthRemoteDataSource {
       throw DioErrorMapper.map(error);
     } on ApiException {
       rethrow;
+    } on Object catch (error) {
+      // Some backends respond 201 for register without `{ "id": ... }`.
+      // Retrofit then throws a parse error, but registration itself succeeded.
+      if (_isRegisterResponseParseError(error)) {
+        return IdResponseDto(id: 0);
+      }
+      rethrow;
     }
   }
 
@@ -123,5 +130,16 @@ class AuthRemoteDataSource {
     } on ApiException {
       rethrow;
     }
+  }
+
+  bool _isRegisterResponseParseError(Object error) {
+    if (error is TypeError || error is FormatException) {
+      return true;
+    }
+    final text = error.toString();
+    return text.contains('IdResponseDto') ||
+        text.contains('Null is not a subtype') ||
+        text.contains('type \'String\' is not a subtype') ||
+        text.contains('NoSuchMethodError');
   }
 }

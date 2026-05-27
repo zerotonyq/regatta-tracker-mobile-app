@@ -40,6 +40,11 @@ class SensorBridgeRepositoryImpl implements SensorBridgeRepository {
   }
 
   @override
+  Future<GpsSample> getCurrentLocation() {
+    return _bridge.getCurrentLocation();
+  }
+
+  @override
   Future<SessionStatus> resumeTrackingSession({required String sessionId}) {
     return _bridge.resumeTrackingSession(sessionId);
   }

@@ -163,6 +163,11 @@ class _FakeSensorBridgeRepository implements SensorBridgeRepository {
   }
 
   @override
+  Future<GpsSample> getCurrentLocation() {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<SessionStatus> resumeTrackingSession({required String sessionId}) {
     throw UnimplementedError();
   }

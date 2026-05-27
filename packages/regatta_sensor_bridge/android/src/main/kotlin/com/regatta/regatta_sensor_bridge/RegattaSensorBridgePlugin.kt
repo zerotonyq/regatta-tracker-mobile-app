@@ -11,6 +11,9 @@ import android.location.LocationManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -181,6 +184,7 @@ class RegattaSensorBridgePlugin :
                     RegattaTrackingSessionManager.updateHealth(applicationContext, health)
                     result.success(health)
                 }
+                "getCurrentLocation" -> getCurrentLocation(result)
                 "getSessionStatus" -> {
                     val sessionId = args["sessionId"] as? String
                     result.success(RegattaTrackingSessionManager.activeStatus(sessionId))
@@ -407,6 +411,46 @@ class RegattaSensorBridgePlugin :
     private fun isGpsEnabled(): Boolean {
         val manager = applicationContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         return manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+    }
+
+    private fun getCurrentLocation(result: MethodChannel.Result) {
+        if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            result.error(
+                "location_permission_denied",
+                "Location permission is required to read the current position.",
+                mapOf("isRecoverable" to true),
+            )
+            return
+        }
+        val tokenSource = CancellationTokenSource()
+        LocationServices.getFusedLocationProviderClient(applicationContext)
+            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, tokenSource.token)
+            .addOnSuccessListener { location ->
+                if (location == null) {
+                    result.error(
+                        "location_unavailable",
+                        "Current location is not available yet.",
+                        mapOf("isRecoverable" to true),
+                    )
+                    return@addOnSuccessListener
+                }
+                result.success(
+                    mapOf(
+                        "timestamp" to iso8601(location.time),
+                        "longitude" to location.longitude,
+                        "latitude" to location.latitude,
+                        "accuracyMeters" to location.accuracy,
+                        "speedMetersPerSecond" to location.speed,
+                    ),
+                )
+            }
+            .addOnFailureListener { error ->
+                result.error(
+                    "location_read_failed",
+                    error.message ?: "Failed to read current location.",
+                    mapOf("isRecoverable" to true),
+                )
+            }
     }
 
     private fun startTrackingService(intent: Intent) {

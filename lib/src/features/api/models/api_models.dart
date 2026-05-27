@@ -18,6 +18,22 @@ enum RaceStatus {
   finished,
 }
 
+enum RaceResultsScope {
+  @JsonValue('self')
+  self,
+  @JsonValue('participants')
+  participants,
+}
+
+enum ParticipantRaceProgressStatus {
+  @JsonValue('not_started')
+  notStarted,
+  @JsonValue('in_race')
+  inRace,
+  @JsonValue('finished')
+  finished,
+}
+
 @JsonSerializable(createFactory: false, includeIfNull: false)
 class LoginRequestDto {
   LoginRequestDto({
@@ -72,11 +88,14 @@ class UploadLocationRequestDto {
     required this.time,
     required this.longitude,
     required this.latitude,
+    this.raceId,
   });
 
   final String time;
   final double longitude;
   final double latitude;
+  @JsonKey(name: 'race_id')
+  final int? raceId;
 
   Map<String, dynamic> toJson() => _$UploadLocationRequestDtoToJson(this);
 }
@@ -420,11 +439,8 @@ class ActiveRaceResponseDto {
 class RaceResultsResponseDto {
   RaceResultsResponseDto({
     required this.raceId,
-    required this.status,
-    required this.eventsCount,
-    required this.hasCourse,
-    this.startedAt,
-    this.endedAt,
+    required this.scope,
+    required this.participants,
   });
 
   factory RaceResultsResponseDto.fromJson(Map<String, dynamic> json) =>
@@ -432,15 +448,43 @@ class RaceResultsResponseDto {
 
   @JsonKey(name: 'race_id')
   final int raceId;
-  final RaceStatus status;
-  @JsonKey(name: 'events_count')
-  final int eventsCount;
-  @JsonKey(name: 'has_course')
-  final bool hasCourse;
+  final RaceResultsScope scope;
+  final List<ParticipantProgressDto> participants;
+}
+
+@JsonSerializable(createToJson: false)
+class ParticipantProgressDto {
+  ParticipantProgressDto({
+    required this.userId,
+    required this.status,
+    this.startedAt,
+    this.finishedAt,
+    this.currentMark,
+  });
+
+  factory ParticipantProgressDto.fromJson(Map<String, dynamic> json) =>
+      _$ParticipantProgressDtoFromJson(json);
+
+  @JsonKey(name: 'user_id')
+  final int userId;
+  final ParticipantRaceProgressStatus status;
   @JsonKey(name: 'started_at')
   final String? startedAt;
-  @JsonKey(name: 'ended_at')
-  final String? endedAt;
+  @JsonKey(name: 'finished_at')
+  final String? finishedAt;
+  @JsonKey(name: 'current_mark')
+  final ParticipantCurrentMarkDto? currentMark;
+}
+
+@JsonSerializable(createToJson: false)
+class ParticipantCurrentMarkDto {
+  ParticipantCurrentMarkDto({required this.index, required this.id});
+
+  factory ParticipantCurrentMarkDto.fromJson(Map<String, dynamic> json) =>
+      _$ParticipantCurrentMarkDtoFromJson(json);
+
+  final int index;
+  final String id;
 }
 
 @JsonSerializable(createToJson: false)

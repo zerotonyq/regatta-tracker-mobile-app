@@ -10,6 +10,7 @@ public class RegattaSensorBridgePlugin: NSObject, FlutterPlugin {
   private var healthSink: FlutterEventSink?
   fileprivate var sampleSink: FlutterEventSink?
   private var pendingPermissionResult: FlutterResult?
+  private var pendingCurrentLocationResult: FlutterResult?
   private var pendingPermissionTasks = 0
   private let locationManager = CLLocationManager()
   private let motionManager = CMMotionManager()
@@ -103,6 +104,8 @@ public class RegattaSensorBridgePlugin: NSObject, FlutterPlugin {
         isRunning: activeSession?["state"] as? String == "tracking",
         statusMessage: "Health snapshot requested."
       ))
+    case "getCurrentLocation":
+      getCurrentLocation(result: result)
     case "getSessionStatus":
       result(activeSession)
     default:
@@ -311,6 +314,62 @@ public class RegattaSensorBridgePlugin: NSObject, FlutterPlugin {
     } catch {
       droppedSamples += 1
     }
+  }
+
+  private func getCurrentLocation(result: @escaping FlutterResult) {
+    guard pendingCurrentLocationResult == nil else {
+      result(FlutterError(
+        code: "location_request_in_progress",
+        message: "A current location request is already in progress.",
+        details: ["isRecoverable": true]
+      ))
+      return
+    }
+    guard CLLocationManager.locationServicesEnabled() else {
+      result(FlutterError(
+        code: "location_unavailable",
+        message: "Location services are disabled.",
+        details: ["isRecoverable": true]
+      ))
+      return
+    }
+    switch locationAuthorizationStatus() {
+    case .authorizedAlways, .authorizedWhenInUse:
+      if let location = locationManager.location {
+        result(gpsPayload(location))
+        return
+      }
+      pendingCurrentLocationResult = result
+      locationManager.requestLocation()
+    case .notDetermined:
+      result(FlutterError(
+        code: "location_permission_unknown",
+        message: "Location permission has not been requested yet.",
+        details: ["isRecoverable": true]
+      ))
+    case .denied, .restricted:
+      result(FlutterError(
+        code: "location_permission_denied",
+        message: "Location permission is required to read the current position.",
+        details: ["isRecoverable": true]
+      ))
+    @unknown default:
+      result(FlutterError(
+        code: "location_permission_unknown",
+        message: "Location permission state is unknown.",
+        details: ["isRecoverable": true]
+      ))
+    }
+  }
+
+  private func gpsPayload(_ location: CLLocation) -> [String: Any?] {
+    [
+      "timestamp": iso(location.timestamp),
+      "longitude": location.coordinate.longitude,
+      "latitude": location.coordinate.latitude,
+      "accuracyMeters": location.horizontalAccuracy,
+      "speedMetersPerSecond": max(location.speed, 0),
+    ]
   }
 
   private func requestRequiredPermissions(result: @escaping FlutterResult) {
@@ -574,12 +633,24 @@ extension RegattaSensorBridgePlugin: FlutterStreamHandler {
 
 extension RegattaSensorBridgePlugin: CLLocationManagerDelegate {
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    if let result = pendingCurrentLocationResult, let location = locations.last {
+      pendingCurrentLocationResult = nil
+      result(gpsPayload(location))
+    }
     for location in locations {
       appendGps(location)
     }
   }
 
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    if let result = pendingCurrentLocationResult {
+      pendingCurrentLocationResult = nil
+      result(FlutterError(
+        code: "location_read_failed",
+        message: error.localizedDescription,
+        details: ["isRecoverable": true]
+      ))
+    }
     droppedSamples += 1
     emitHealth(statusMessage: "Location update failed.")
   }

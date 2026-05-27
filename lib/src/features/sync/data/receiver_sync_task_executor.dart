@@ -33,6 +33,7 @@ class ReceiverSyncTaskExecutor
     return _handleApiCall(() async {
       final response = await _receiverRemoteDataSource.uploadBatch(
         requestId: 'sync-${job.id}',
+        raceId: payload.raceId,
         points: <UploadBatchPointDto>[_pointFromPayload(payload)],
       );
       return _resultFromResponse(response, payload.clientTaskId);
@@ -69,38 +70,70 @@ class ReceiverSyncTaskExecutor
       return terminalResults;
     }
 
-    final requestId =
-        'sync-batch-${payloadsByJobId.keys.join('-').hashCode.abs()}';
-    late final UploadBatchResponseDto response;
-    try {
-      response = await _receiverRemoteDataSource.uploadBatch(
-        requestId: requestId,
-        points: payloadsByJobId.values
-            .map((entry) => _pointFromPayload(entry.payload))
-            .toList(growable: false),
-      );
-    } catch (error) {
-      final result = _mapError(error);
-      return <String, SyncTaskResult>{
-        for (final id in payloadsByJobId.keys) id: result,
-        ...terminalResults,
-      };
+    final results = <String, SyncTaskResult>{...terminalResults};
+    final entriesByRaceId =
+        <
+          int?,
+          List<
+            MapEntry<String, ({SyncJobEntity job, SyncUploadPayload payload})>
+          >
+        >{};
+    for (final entry in payloadsByJobId.entries) {
+      entriesByRaceId
+          .putIfAbsent(entry.value.payload.raceId, () => [])
+          .add(entry);
     }
 
-    final results = <String, SyncTaskResult>{...terminalResults};
-    final jobIdByClientTaskId = <String, String>{
-      for (final entry in payloadsByJobId.entries)
-        entry.value.payload.clientTaskId: entry.key,
-    };
-    for (final item in response.items) {
-      final jobId = jobIdByClientTaskId[item.clientTaskId];
-      if (jobId == null) {
+    for (final raceGroup in entriesByRaceId.entries) {
+      final raceId = raceGroup.key;
+      final groupEntries = raceGroup.value;
+      final requestId =
+          'sync-batch-${raceId ?? 'none'}-${groupEntries.map((e) => e.key).join('-').hashCode.abs()}';
+
+      final pointsByTimestamp = <String, UploadBatchPointDto>{};
+      final duplicateJobIds = <String>{};
+      for (final entry in groupEntries) {
+        final point = _pointFromPayload(entry.value.payload);
+        if (pointsByTimestamp.containsKey(point.timestampUtc)) {
+          duplicateJobIds.add(entry.key);
+          continue;
+        }
+        pointsByTimestamp[point.timestampUtc] = point;
+      }
+
+      late final UploadBatchResponseDto response;
+      try {
+        response = await _receiverRemoteDataSource.uploadBatch(
+          requestId: requestId,
+          raceId: raceId,
+          points: pointsByTimestamp.values.toList(growable: false),
+        );
+      } catch (error) {
+        final result = _mapError(error);
+        for (final entry in groupEntries) {
+          results[entry.key] = result;
+        }
         continue;
       }
-      results[jobId] = _resultFromItem(item);
-    }
-    for (final jobId in payloadsByJobId.keys) {
-      results.putIfAbsent(jobId, () => const SyncTaskResult.synced());
+
+      final jobIdByClientTaskId = <String, String>{
+        for (final entry in groupEntries)
+          entry.value.payload.clientTaskId: entry.key,
+      };
+      for (final item in response.items) {
+        final jobId = jobIdByClientTaskId[item.clientTaskId];
+        if (jobId == null) {
+          continue;
+        }
+        results[jobId] = _resultFromItem(item);
+      }
+
+      for (final entry in groupEntries) {
+        results.putIfAbsent(entry.key, () => const SyncTaskResult.synced());
+      }
+      for (final duplicateJobId in duplicateJobIds) {
+        results[duplicateJobId] = const SyncTaskResult.synced();
+      }
     }
     return results;
   }

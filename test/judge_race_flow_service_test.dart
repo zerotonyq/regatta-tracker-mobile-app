@@ -405,6 +405,15 @@ class _FakeJudgeRaceRepository implements JudgeRaceRepository {
   }
 
   @override
+  Future<RaceResultsResponseDto> loadRaceResults({required int raceId}) async {
+    return RaceResultsResponseDto(
+      raceId: raceId,
+      scope: RaceResultsScope.participants,
+      participants: const <ParticipantProgressDto>[],
+    );
+  }
+
+  @override
   Future<void> publishRaceEvent({
     required int raceId,
     required String eventId,

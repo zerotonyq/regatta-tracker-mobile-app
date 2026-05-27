@@ -45,6 +45,10 @@ class JudgeRaceFlowService {
     return _judgeRaceRepository.loadMyRaces();
   }
 
+  Future<RaceResultsResponseDto> loadRaceResults({required int raceId}) {
+    return _judgeRaceRepository.loadRaceResults(raceId: raceId);
+  }
+
   Future<JudgeFlowResult<int>> createRace({
     required List<int> participantIds,
     required List<int> judgeIds,

@@ -2,23 +2,30 @@ import 'package:flutter/foundation.dart';
 
 import '../application/create_reference_course_use_case.dart';
 import '../application/evaluate_race_state_use_case.dart';
+import '../domain/course_entity.dart';
+import '../domain/race_computer_repository.dart';
 import '../domain/race_state_entity.dart';
 
 class RaceComputerController extends ChangeNotifier {
   RaceComputerController({
     required EvaluateRaceStateUseCase evaluateRaceStateUseCase,
     required CreateReferenceCourseUseCase createReferenceCourseUseCase,
+    required RaceComputerRepository raceComputerRepository,
   }) : _evaluateRaceStateUseCase = evaluateRaceStateUseCase,
-       _createReferenceCourseUseCase = createReferenceCourseUseCase;
+       _createReferenceCourseUseCase = createReferenceCourseUseCase,
+       _raceComputerRepository = raceComputerRepository;
 
   final EvaluateRaceStateUseCase _evaluateRaceStateUseCase;
   final CreateReferenceCourseUseCase _createReferenceCourseUseCase;
+  final RaceComputerRepository _raceComputerRepository;
 
   RaceStateEntity? _state;
+  CourseEntity? _course;
   bool _loading = false;
   String? _error;
 
   RaceStateEntity? get state => _state;
+  CourseEntity? get course => _course ?? _state?.course;
   bool get loading => _loading;
   String? get error => _error;
 
@@ -28,6 +35,7 @@ class RaceComputerController extends ChangeNotifier {
         sessionId: sessionId,
         raceId: raceId,
       );
+      _course = _state?.course;
     });
   }
 
@@ -44,6 +52,34 @@ class RaceComputerController extends ChangeNotifier {
         sessionId: sessionId,
         raceId: raceId,
       );
+      _course = _state?.course;
+    });
+  }
+
+  Future<void> loadCourse({required int raceId}) async {
+    await _runBusy(() async {
+      _course = await _raceComputerRepository.loadCourse(raceId: raceId);
+    });
+  }
+
+  Future<void> syncCourse({required int raceId}) async {
+    await _runBusy(() async {
+      _course = await _raceComputerRepository.syncCourseFromRemote(
+        raceId: raceId,
+      );
+    });
+  }
+
+  Future<void> saveCourse(
+    CourseEntity course, {
+    bool publishRemote = false,
+  }) async {
+    await _runBusy(() async {
+      await _raceComputerRepository.saveCourse(
+        course,
+        publishRemote: publishRemote,
+      );
+      _course = await _raceComputerRepository.loadCourse(raceId: course.raceId);
     });
   }
 

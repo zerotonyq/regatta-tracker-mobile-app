@@ -1,5 +1,4 @@
 import '../../tracking/domain/tracking_point_entity.dart';
-import '../../tracking/domain/tracking_session_failure.dart';
 import '../domain/sensor_bridge_repository.dart';
 
 class ReadCurrentTrackingPointUseCase {
@@ -7,19 +6,10 @@ class ReadCurrentTrackingPointUseCase {
 
   final SensorBridgeRepository _sensorBridgeRepository;
 
-  Future<TrackingPointEntity> execute({required int sessionId}) async {
-    final batch = await _sensorBridgeRepository
-        .streamSamples(sessionId: sessionId.toString())
-        .first;
-    if (batch.gpsPoints.isEmpty) {
-      throw TrackingSessionFailure(
-        'No GPS sample available from sensor bridge.',
-      );
-    }
-
-    final point = batch.gpsPoints.first;
+  Future<TrackingPointEntity> execute() async {
+    final point = await _sensorBridgeRepository.getCurrentLocation();
     return TrackingPointEntity(
-      sessionId: sessionId,
+      sessionId: 0,
       timestampUtc: point.timestamp,
       longitude: point.longitude,
       latitude: point.latitude,

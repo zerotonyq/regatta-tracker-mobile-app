@@ -13,4 +13,8 @@ abstract class RaceComputerRepository {
   });
 
   Future<CourseEntity?> loadCourse({required int raceId});
+
+  Future<void> saveCourse(CourseEntity course, {bool publishRemote = false});
+
+  Future<CourseEntity?> syncCourseFromRemote({required int raceId});
 }

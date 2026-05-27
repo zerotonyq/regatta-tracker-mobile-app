@@ -34,6 +34,7 @@ import '../features/race_computer/application/evaluate_race_state_use_case.dart'
 import '../features/race_computer/data/race_computer_repository_impl.dart';
 import '../features/race_computer/domain/race_computer_repository.dart';
 import '../features/race_computer/presentation/race_computer_controller.dart';
+import '../features/sensor_bridge/application/read_current_tracking_point_use_case.dart';
 import '../features/sensor_bridge/application/read_tracking_health_use_case.dart';
 import '../features/sensor_bridge/data/sensor_bridge_repository_impl.dart';
 import '../features/sensor_bridge/domain/sensor_bridge_repository.dart';
@@ -52,6 +53,7 @@ import '../features/tracking/application/tracking_session_service.dart';
 import '../features/tracking/domain/tracking_repository.dart';
 import '../features/tracking/domain/tracking_session_repository.dart';
 import '../features/tracking/presentation/tracking_session_controller.dart';
+import '../features/track_map/presentation/track_map_controller.dart';
 
 class AppDependencies {
   AppDependencies({
@@ -101,6 +103,8 @@ class AppDependencies {
       SensorBridgeRepositoryImpl(bridge: _buildSensorBridge());
   late final ReadTrackingHealthUseCase readTrackingHealthUseCase =
       ReadTrackingHealthUseCase(sensorBridgeRepository);
+  late final ReadCurrentTrackingPointUseCase readCurrentTrackingPointUseCase =
+      ReadCurrentTrackingPointUseCase(sensorBridgeRepository);
   late final TrackingRepository trackingRepository = TrackingRepositoryImpl(
     appDatabase,
   );
@@ -141,6 +145,7 @@ class AppDependencies {
       RaceComputerRepositoryImpl(
         appDatabase: appDatabase,
         trackingRepository: trackingRepository,
+        managementRemoteDataSource: managementRemoteDataSource,
       );
   late final EvaluateRaceStateUseCase evaluateRaceStateUseCase =
       EvaluateRaceStateUseCase(raceComputerRepository);
@@ -168,7 +173,12 @@ class AppDependencies {
     return RaceComputerController(
       evaluateRaceStateUseCase: evaluateRaceStateUseCase,
       createReferenceCourseUseCase: createReferenceCourseUseCase,
+      raceComputerRepository: raceComputerRepository,
     );
+  }
+
+  TrackMapController createTrackMapController() {
+    return TrackMapController(trackingRepository: trackingRepository);
   }
 
   ExportController createExportController() {

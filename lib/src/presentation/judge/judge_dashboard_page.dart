@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../features/api/models/api_models.dart';
 import '../../features/auth/presentation/auth_session_controller.dart';
@@ -7,13 +8,13 @@ import '../../features/judge/domain/judge_race_context_entity.dart';
 import '../../features/judge/domain/judge_race_status.dart';
 import '../../features/judge/domain/judge_start_sequence_state.dart';
 import '../../features/judge/presentation/judge_race_controller.dart';
-import '../widgets/app_button.dart';
 
 class JudgeDashboardPage extends StatefulWidget {
   const JudgeDashboardPage({
     required this.authController,
     required this.controller,
     required this.onCreateRaceTap,
+    required this.onEditCourseTap,
     required this.onLogoutTap,
     super.key,
   });
@@ -21,6 +22,7 @@ class JudgeDashboardPage extends StatefulWidget {
   final AuthSessionController authController;
   final JudgeRaceController controller;
   final VoidCallback onCreateRaceTap;
+  final ValueChanged<int> onEditCourseTap;
   final VoidCallback onLogoutTap;
 
   @override
@@ -28,6 +30,8 @@ class JudgeDashboardPage extends StatefulWidget {
 }
 
 class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
+  static const _logoAsset = 'assets/images/regatracker_logo.svg';
+
   final _raceIdController = TextEditingController();
 
   @override
@@ -51,349 +55,351 @@ class _JudgeDashboardPageState extends State<JudgeDashboardPage> {
 
   Future<void> _startRace() async {
     final raceId = _resolveRaceId();
-    if (raceId == null) {
-      return;
+    if (raceId != null) {
+      await widget.controller.startRace(raceId: raceId);
     }
-    await widget.controller.startRace(raceId: raceId);
   }
 
   Future<void> _endRace() async {
     final raceId = _resolveRaceId();
-    if (raceId == null) {
-      return;
+    if (raceId != null) {
+      await widget.controller.endRace(raceId: raceId);
     }
-    await widget.controller.endRace(raceId: raceId);
   }
 
   Future<void> _recordSignal(String signalType) async {
     final raceId = _resolveRaceId();
-    if (raceId == null) {
-      return;
+    if (raceId != null) {
+      await widget.controller.recordStartProcedureSignal(
+        raceId: raceId,
+        signalType: signalType,
+      );
     }
-    await widget.controller.recordStartProcedureSignal(
-      raceId: raceId,
-      signalType: signalType,
-    );
   }
 
   Future<void> _scheduleStartProcedure(Duration duration) async {
     final raceId = _resolveRaceId();
-    if (raceId == null) {
-      return;
+    if (raceId != null) {
+      await widget.controller.scheduleStartProcedure(
+        raceId: raceId,
+        duration: duration,
+      );
     }
-    await widget.controller.scheduleStartProcedure(
-      raceId: raceId,
-      duration: duration,
-    );
+  }
+
+  Future<void> _loadResults() async {
+    final raceId = _resolveRaceId();
+    if (raceId != null) {
+      await widget.controller.loadRaceResults(raceId: raceId);
+    }
   }
 
   bool _canStart(JudgeRaceContextEntity context, int? raceId) {
     if (raceId == null) {
       return false;
     }
+
     final sequence = _sequenceState(raceId);
     if (!sequence.canStartRace) {
       return false;
     }
+
     if (context.lastRaceId != raceId) {
       return true;
     }
+
     return context.status == JudgeRaceStatus.idle ||
         context.status == JudgeRaceStatus.created;
   }
 
   bool _canFinish(JudgeRaceContextEntity context, int? raceId) {
+    return raceId != null &&
+        context.lastRaceId == raceId &&
+        context.status == JudgeRaceStatus.started;
+  }
+
+  bool _canEditCourse(int? raceId) {
     if (raceId == null) {
       return false;
     }
-    return context.lastRaceId == raceId &&
-        context.status == JudgeRaceStatus.started;
+
+    return widget.controller.context.lastRaceId == raceId ||
+        widget.controller.myRaces.any((race) => race.raceId == raceId);
   }
 
   String _procedureHint(JudgeStartSequenceState sequence) {
     if (sequence.canScheduleFiveMinute) {
-      return 'Сначала выберите стартовую процедуру: 5 мин или 1 мин.';
+      return 'Выберите стартовую процедуру: 5 минут или 1 минута.';
     }
     if (sequence.canSendWarning) {
-      return 'Следующий шаг: предупредительный сигнал.';
+      return 'Следующий шаг: warning signal.';
     }
     if (sequence.canSendPreparatory) {
-      return 'Следующий шаг: подготовительный сигнал.';
+      return 'Следующий шаг: preparatory signal.';
     }
     if (sequence.canSendStart) {
-      return 'Следующий шаг: сигнал старт.';
+      return 'Следующий шаг: start signal.';
     }
     if (sequence.canStartRace) {
-      return 'Сигнал старт подан. Теперь можно начать гонку.';
+      return 'Start signal подан. Можно запускать гонку.';
     }
-    return 'Порядок процедуры уже завершен или недоступен для этой гонки.';
+    return 'Стартовая процедура завершена или недоступна.';
   }
 
   @override
   Widget build(BuildContext context) {
+    const background = Color(0xFFF8FBFD);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Панель судьи'),
-        actions: [
-          IconButton(
-            onPressed: widget.onLogoutTap,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Выйти',
-          ),
-        ],
-      ),
-      body: AnimatedBuilder(
-        animation: widget.controller,
-        builder: (context, _) {
-          final flowController = widget.controller;
-          final raceId = _resolveRaceId();
-          final sequence = raceId == null
-              ? JudgeStartSequenceState.empty
-              : _sequenceState(raceId);
+      backgroundColor: background,
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final flowController = widget.controller;
+            final raceId = _resolveRaceId();
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: ListView(
-              children: [
-                _StatusCard(
-                  context: flowController.context,
-                  userId: widget.authController.userId,
-                  message: flowController.message,
-                  error: flowController.error,
-                ),
-                const SizedBox(height: 16),
-                _MyRacesCard(races: flowController.myRaces),
-                const SizedBox(height: 16),
-                AppButton(
-                  label: 'Создать гонку',
-                  icon: Icons.add,
-                  fullWidth: true,
-                  onPressed: widget.onCreateRaceTap,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _raceIdController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'ID гонки',
-                    border: const OutlineInputBorder(),
-                    helperText: flowController.currentRaceId == null
-                        ? 'Введите id гонки, чтобы управлять стартовой процедурой и состоянием гонки.'
-                        : 'Можно оставить поле пустым и использовать гонку ${flowController.currentRaceId}.',
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                if (raceId != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _procedureHint(sequence),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        label: 'Начать гонку',
-                        variant: AppButtonVariant.success,
-                        loading: flowController.loading,
-                        onPressed: _canStart(flowController.context, raceId)
-                            ? _startRace
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AppButton(
-                        label: 'Завершить гонку',
-                        variant: AppButtonVariant.danger,
-                        loading: flowController.loading,
-                        onPressed: _canFinish(flowController.context, raceId)
-                            ? _endRace
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _SignalButton(
-                      label: 'Стартовая процедура 5 мин',
-                      onPressed:
-                          raceId == null ||
-                              flowController.loading ||
-                              !sequence.canScheduleFiveMinute
-                          ? null
-                          : () => _scheduleStartProcedure(
-                              const Duration(minutes: 5),
-                            ),
-                    ),
-                    _SignalButton(
-                      label: 'Стартовая процедура 1 мин',
-                      onPressed:
-                          raceId == null ||
-                              flowController.loading ||
-                              !sequence.canScheduleOneMinute
-                          ? null
-                          : () => _scheduleStartProcedure(
-                              const Duration(minutes: 1),
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _SignalButton(
-                      label: 'Сигнал: предупредительный',
-                      onPressed:
-                          raceId == null ||
-                              flowController.loading ||
-                              !sequence.canSendWarning
-                          ? null
-                          : () => _recordSignal('warning'),
-                    ),
-                    _SignalButton(
-                      label: 'Сигнал: подготовительный',
-                      onPressed:
-                          raceId == null ||
-                              flowController.loading ||
-                              !sequence.canSendPreparatory
-                          ? null
-                          : () => _recordSignal('preparatory'),
-                    ),
-                    _SignalButton(
-                      label: 'Сигнал: старт',
-                      onPressed:
-                          raceId == null ||
-                              flowController.loading ||
-                              !sequence.canSendStart
-                          ? null
-                          : () => _recordSignal('start'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Последние действия судьи',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                if (flowController.recentActions.isEmpty)
-                  const Text('Действий пока нет.')
-                else
-                  ...flowController.recentActions.map(_ActionTile.new),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
+            final sequence = raceId == null
+                ? JudgeStartSequenceState.empty
+                : _sequenceState(raceId);
 
-class _MyRacesCard extends StatelessWidget {
-  const _MyRacesCard({required this.races});
+            final statusCard = _StatusCard(
+              judgeContext: flowController.context,
+              userId: widget.authController.userId,
+              message: flowController.message,
+              error: flowController.error,
+            );
 
-  final List<RaceSummaryDto> races;
+            final controlPanel = _RaceControlPanel(
+              raceIdController: _raceIdController,
+              flowController: flowController,
+              raceId: raceId,
+              sequence: sequence,
+              procedureHint: _procedureHint(sequence),
+              canStart: _canStart(flowController.context, raceId),
+              canFinish: _canFinish(flowController.context, raceId),
+              canEditCourse: _canEditCourse(raceId),
+              onCreateRaceTap: widget.onCreateRaceTap,
+              onEditCourseTap: () {
+                final selectedRaceId = raceId;
+                if (selectedRaceId != null) {
+                  widget.onEditCourseTap(selectedRaceId);
+                }
+              },
+              onRaceIdChanged: () => setState(() {}),
+              onStartRace: _startRace,
+              onEndRace: _endRace,
+              onScheduleFive: () {
+                _scheduleStartProcedure(const Duration(minutes: 5));
+              },
+              onScheduleOne: () {
+                _scheduleStartProcedure(const Duration(minutes: 1));
+              },
+              onLoadResults: _loadResults,
+              onWarning: () => _recordSignal('warning'),
+              onPreparatory: () => _recordSignal('preparatory'),
+              onStartSignal: () => _recordSignal('start'),
+            );
+            final resultsCard = _ResultsCard(results: flowController.raceResults);
+            final actionsCard = _RecentActionsTimeline(
+              actions: flowController.recentActions,
+            );
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Назначенные гонки',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            if (races.isEmpty)
-              const Text('Сервис управления пока не вернул гонки.')
-            else
-              ...races.map(
-                (race) => Text(
-                  'id=${race.raceId} | статус=${race.status.wireNameRu}',
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1120),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 980;
+
+                    if (isWide) {
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                        children: [
+                          _Header(
+                            logoAsset: _logoAsset,
+                            onLogoutTap: widget.onLogoutTap,
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: Column(
+                                  children: [
+                                    statusCard,
+                                    const SizedBox(height: 16),
+                                    resultsCard,
+                                    const SizedBox(height: 16),
+                                    actionsCard,
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                      children: [
+                        _Header(
+                          logoAsset: _logoAsset,
+                          onLogoutTap: widget.onLogoutTap,
+                        ),
+                        const SizedBox(height: 24),
+                        statusCard,
+                        const SizedBox(height: 16),
+                        controlPanel,
+                        const SizedBox(height: 16),
+                        resultsCard,
+                        const SizedBox(height: 16),
+                        actionsCard,
+                      ],
+                    );
+                  },
                 ),
               ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-extension on RaceStatus {
-  String get wireNameRu {
-    return switch (this) {
-      RaceStatus.notStarted => 'не началась',
-      RaceStatus.inProgress => 'идет',
-      RaceStatus.finished => 'завершена',
-    };
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.logoAsset,
+    required this.onLogoutTap,
+  });
+
+  final String logoAsset;
+  final VoidCallback onLogoutTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SvgPicture.asset(
+          logoAsset,
+          width: 54,
+          height: 54,
+        ),
+        const SizedBox(width: 14),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'RegaTracker',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: _AppColors.navy,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Панель судьи',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _AppColors.textMuted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        _RoundIconButton(
+          icon: Icons.logout_rounded,
+          tooltip: 'Выйти',
+          onTap: onLogoutTap,
+        ),
+      ],
+    );
   }
 }
 
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
-    required this.context,
+    required this.judgeContext,
     required this.userId,
     required this.message,
     required this.error,
   });
 
-  final JudgeRaceContextEntity context;
+  final JudgeRaceContextEntity judgeContext;
   final int? userId;
   final String? message;
   final String? error;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final lastActionAt = this.context.lastJudgeActionAtUtc;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Контекст судьи',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text('Ваш id судьи: ${userId?.toString() ?? 'неизвестно'}'),
-            Text('Последняя гонка: ${this.context.lastRaceId ?? 'нет'}'),
-            Text('Локальный статус: ${_statusLabel(this.context.status)}'),
-            Text(
-              'Последнее действие: ${lastActionAt?.toIso8601String() ?? 'не зафиксировано'}',
-            ),
-            if (message != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Последний результат: $message',
-                style: TextStyle(color: Colors.green.shade700),
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              _CardIcon(
+                icon: Icons.gavel_rounded,
+                color: _AppColors.cyan,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Race Director',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: _AppColors.navy,
+                    letterSpacing: -0.3,
+                  ),
+                ),
               ),
             ],
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Последняя ошибка: $error',
-                style: TextStyle(color: theme.colorScheme.error),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _InfoChip(
+                icon: Icons.badge_outlined,
+                text: 'ID судьи: ${userId?.toString() ?? 'неизвестно'}',
+              ),
+              _InfoChip(
+                icon: Icons.flag_rounded,
+                text: 'Гонка: ${judgeContext.lastRaceId ?? 'нет'}',
+              ),
+              _StatusBadge(
+                text: _statusLabel(judgeContext.status),
+                danger: judgeContext.status == JudgeRaceStatus.finished,
+                active: judgeContext.status == JudgeRaceStatus.started,
               ),
             ],
+          ),
+          if (message != null && message!.trim().isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _InlineBanner(
+              icon: Icons.check_circle_outline_rounded,
+              text: message!,
+            ),
           ],
-        ),
+          if (error != null && error!.trim().isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _InlineBanner(
+              icon: Icons.error_outline_rounded,
+              text: error!,
+              danger: true,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -408,6 +414,503 @@ class _StatusCard extends StatelessWidget {
   }
 }
 
+class _RaceControlPanel extends StatelessWidget {
+  const _RaceControlPanel({
+    required this.raceIdController,
+    required this.flowController,
+    required this.raceId,
+    required this.sequence,
+    required this.procedureHint,
+    required this.canStart,
+    required this.canFinish,
+    required this.canEditCourse,
+    required this.onCreateRaceTap,
+    required this.onEditCourseTap,
+    required this.onRaceIdChanged,
+    required this.onStartRace,
+    required this.onEndRace,
+    required this.onScheduleFive,
+    required this.onScheduleOne,
+    required this.onLoadResults,
+    required this.onWarning,
+    required this.onPreparatory,
+    required this.onStartSignal,
+  });
+
+  final TextEditingController raceIdController;
+  final JudgeRaceController flowController;
+  final int? raceId;
+  final JudgeStartSequenceState sequence;
+  final String procedureHint;
+  final bool canStart;
+  final bool canFinish;
+  final bool canEditCourse;
+  final VoidCallback onCreateRaceTap;
+  final VoidCallback onEditCourseTap;
+  final VoidCallback onRaceIdChanged;
+  final VoidCallback onStartRace;
+  final VoidCallback onEndRace;
+  final VoidCallback onScheduleFive;
+  final VoidCallback onScheduleOne;
+  final VoidCallback onLoadResults;
+  final VoidCallback onWarning;
+  final VoidCallback onPreparatory;
+  final VoidCallback onStartSignal;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Управление гонкой',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: _AppColors.navy,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Создайте гонку, настройте курс и проведите стартовую процедуру.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.35,
+              color: _AppColors.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          _PrimaryActionButton(
+            label: 'Создать гонку',
+            icon: Icons.add_rounded,
+            loading: flowController.loading,
+            onPressed: onCreateRaceTap,
+          ),
+
+          const SizedBox(height: 14),
+
+          _RaceIdField(
+            controller: raceIdController,
+            helperText: flowController.currentRaceId == null
+                ? 'Введите ID гонки для управления.'
+                : 'Пустое поле использует гонку ${flowController.currentRaceId}.',
+            onChanged: onRaceIdChanged,
+          ),
+
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(
+                child: _SecondaryActionButton(
+                  label: 'Курс',
+                  icon: Icons.map_outlined,
+                  onPressed: canEditCourse ? onEditCourseTap : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SecondaryActionButton(
+                  label: 'Результаты',
+                  icon: Icons.refresh_rounded,
+                  onPressed:
+                  raceId == null || flowController.loading ? null : onLoadResults,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          _InlineBanner(
+            icon: Icons.info_outline_rounded,
+            text: procedureHint,
+          ),
+
+          const SizedBox(height: 18),
+
+          const Text(
+            'Стартовая процедура',
+            style: TextStyle(
+              fontSize: 16,
+              color: _AppColors.navy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SignalButton(
+                label: '5 мин',
+                onPressed: raceId == null ||
+                    flowController.loading ||
+                    !sequence.canScheduleFiveMinute
+                    ? null
+                    : onScheduleFive,
+              ),
+              _SignalButton(
+                label: '1 мин',
+                onPressed: raceId == null ||
+                    flowController.loading ||
+                    !sequence.canScheduleOneMinute
+                    ? null
+                    : onScheduleOne,
+              ),
+              _SignalButton(
+                label: 'Warning',
+                onPressed: raceId == null ||
+                    flowController.loading ||
+                    !sequence.canSendWarning
+                    ? null
+                    : onWarning,
+              ),
+              _SignalButton(
+                label: 'Preparatory',
+                onPressed: raceId == null ||
+                    flowController.loading ||
+                    !sequence.canSendPreparatory
+                    ? null
+                    : onPreparatory,
+              ),
+              _SignalButton(
+                label: 'Start signal',
+                onPressed: raceId == null ||
+                    flowController.loading ||
+                    !sequence.canSendStart
+                    ? null
+                    : onStartSignal,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          Row(
+            children: [
+              Expanded(
+                child: _PrimaryActionButton(
+                  label: 'Начать',
+                  icon: Icons.play_arrow_rounded,
+                  loading: flowController.loading,
+                  onPressed: canStart ? onStartRace : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _DangerActionButton(
+                  label: 'Финиш',
+                  icon: Icons.stop_rounded,
+                  loading: flowController.loading,
+                  onPressed: canFinish ? onEndRace : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RaceIdField extends StatelessWidget {
+  const _RaceIdField({
+    required this.controller,
+    required this.helperText,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String helperText;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      onChanged: (_) => onChanged(),
+      style: const TextStyle(
+        fontSize: 17,
+        color: _AppColors.navy,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(
+        hintText: 'ID гонки',
+        helperText: helperText,
+        helperMaxLines: 2,
+        prefixIcon: const Icon(
+          Icons.tag_rounded,
+          color: _AppColors.navy,
+          size: 24,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(
+            color: _AppColors.cyan,
+            width: 1.6,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RaceTile extends StatelessWidget {
+  const _RaceTile({
+    required this.race,
+  });
+
+  final RaceSummaryDto race;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.flag_rounded,
+            color: _AppColors.cyan,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Гонка ${race.raceId}',
+              style: const TextStyle(
+                fontSize: 15,
+                color: _AppColors.navy,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          _StatusBadge(
+            text: race.status.wireNameRu,
+            active: race.status == RaceStatus.inProgress,
+            danger: race.status == RaceStatus.finished,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultsCard extends StatelessWidget {
+  const _ResultsCard({
+    required this.results,
+  });
+
+  final RaceResultsResponseDto? results;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = results;
+
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              _CardIcon(
+                icon: Icons.emoji_events_outlined,
+                color: _AppColors.cyan,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Результаты',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: _AppColors.navy,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (data == null)
+            const _EmptyBlock(
+              icon: Icons.leaderboard_outlined,
+              title: 'Результаты не загружены',
+              text: 'Выберите гонку и нажмите «Результаты».',
+            )
+          else ...[
+            _InfoChip(
+              icon: Icons.flag_rounded,
+              text: 'Гонка #${data.raceId}',
+            ),
+            const SizedBox(height: 14),
+            if (data.participants.isEmpty)
+              const _EmptyBlock(
+                icon: Icons.groups_outlined,
+                title: 'Нет данных участников',
+                text: 'Данные прогресса участников отсутствуют.',
+              )
+            else
+              ...data.participants.map(
+                    (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ParticipantResultTile(item: item),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticipantResultTile extends StatelessWidget {
+  const _ParticipantResultTile({
+    required this.item,
+  });
+
+  final ParticipantProgressDto item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.person_outline_rounded,
+                color: _AppColors.cyan,
+                size: 23,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Участник ${item.userId}',
+                  style: const TextStyle(
+                    color: _AppColors.navy,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _StatusBadge(
+                text: _participantStatusLabel(item.status),
+                active: item.status == ParticipantRaceProgressStatus.inRace,
+                danger: false,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _KeyValueRow(
+            label: 'Текущая отметка',
+            value: _currentMarkLabel(item.currentMark),
+            icon: Icons.place_rounded,
+          ),
+          const SizedBox(height: 8),
+          _KeyValueRow(
+            label: 'Старт',
+            value: item.startedAt?.toString() ?? '—',
+            icon: Icons.play_arrow_rounded,
+          ),
+          const SizedBox(height: 8),
+          _KeyValueRow(
+            label: 'Финиш',
+            value: item.finishedAt?.toString() ?? '—',
+            icon: Icons.stop_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _participantStatusLabel(ParticipantRaceProgressStatus status) {
+    return switch (status) {
+      ParticipantRaceProgressStatus.notStarted => 'Не стартовал',
+      ParticipantRaceProgressStatus.inRace => 'На дистанции',
+      ParticipantRaceProgressStatus.finished => 'Финишировал',
+    };
+  }
+
+  static String _currentMarkLabel(ParticipantCurrentMarkDto? currentMark) {
+    if (currentMark == null) {
+      return '—';
+    }
+    return '#${currentMark.index} (${currentMark.id})';
+  }
+}
+
+class _RecentActionsTimeline extends StatelessWidget {
+  const _RecentActionsTimeline({
+    required this.actions,
+  });
+
+  final List<JudgeActionEntity> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Журнал действий',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _AppColors.navy,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (actions.isEmpty)
+            const _EmptyBlock(
+              icon: Icons.timeline_rounded,
+              title: 'Действий пока нет',
+              text: 'После управления гонкой события появятся здесь.',
+            )
+          else
+            ...actions.map(
+                  (action) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _ActionTile(action),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionTile extends StatelessWidget {
   const _ActionTile(this.action);
 
@@ -415,20 +918,64 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        dense: true,
-        title: Text(_eventTypeLabel(action.eventType)),
-        subtitle: Text(
-          'гонка=${action.raceId ?? '-'} | синхронизация=${_syncStatusLabel(action.syncStatus)}\n${action.createdAtUtc.toIso8601String()}',
-        ),
-        trailing: action.payloadJson == null
-            ? null
-            : Tooltip(
-                message: action.payloadJson!,
-                child: const Icon(Icons.info_outline),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.timeline_rounded,
+            color: _AppColors.cyan,
+            size: 23,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _eventTypeLabel(action.eventType),
+                  style: const TextStyle(
+                    color: _AppColors.navy,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Гонка: ${action.raceId ?? '-'} · ${_syncStatusLabel(action.syncStatus)}',
+                  style: const TextStyle(
+                    color: _AppColors.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  action.createdAtUtc.toIso8601String(),
+                  style: const TextStyle(
+                    color: _AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (action.payloadJson != null)
+            Tooltip(
+              message: action.payloadJson!,
+              child: const Icon(
+                Icons.info_outline_rounded,
+                color: _AppColors.textMuted,
+                size: 22,
               ),
+            ),
+        ],
       ),
     );
   }
@@ -459,18 +1006,521 @@ class _ActionTile extends StatelessWidget {
 }
 
 class _SignalButton extends StatelessWidget {
-  const _SignalButton({required this.label, this.onPressed});
+  const _SignalButton({
+    required this.label,
+    this.onPressed,
+  });
 
   final String label;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return AppButton(
-      label: label,
-      size: AppButtonSize.sm,
-      variant: AppButtonVariant.outline,
+    return OutlinedButton(
       onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _AppColors.navy,
+        disabledForegroundColor: _AppColors.textMuted,
+        side: const BorderSide(color: _AppColors.border),
+        backgroundColor: Colors.white,
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      child: Text(label),
     );
+  }
+}
+
+class _PrimaryActionButton extends StatelessWidget {
+  const _PrimaryActionButton({
+    required this.label,
+    required this.icon,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: loading ? null : onPressed,
+        icon: loading
+            ? const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.3,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        )
+            : Icon(icon, size: 22),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          elevation: 8,
+          shadowColor: _AppColors.cyan.withOpacity(0.28),
+          backgroundColor: _AppColors.cyan,
+          disabledBackgroundColor: _AppColors.cyan.withOpacity(0.45),
+          foregroundColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryActionButton extends StatelessWidget {
+  const _SecondaryActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 20),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _AppColors.navy,
+          disabledForegroundColor: _AppColors.textMuted,
+          side: const BorderSide(color: _AppColors.border),
+          backgroundColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DangerActionButton extends StatelessWidget {
+  const _DangerActionButton({
+    required this.label,
+    required this.icon,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    const danger = Colors.redAccent;
+
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: loading ? null : onPressed,
+        icon: loading
+            ? const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.3,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        )
+            : Icon(icon, size: 22),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          elevation: 8,
+          shadowColor: danger.withOpacity(0.24),
+          backgroundColor: danger,
+          disabledBackgroundColor: danger.withOpacity(0.45),
+          foregroundColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppCard extends StatelessWidget {
+  const _AppCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(18),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: _AppColors.surface,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: _AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: _AppColors.navy.withOpacity(0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CardIcon extends StatelessWidget {
+  const _CardIcon({
+    required this.icon,
+    required this.color,
+  });
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(
+        icon,
+        color: color,
+        size: 24,
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: _AppColors.navy,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: const TextStyle(
+              color: _AppColors.navy,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
+    required this.text,
+    this.active = false,
+    this.danger = false,
+  });
+
+  final String text;
+  final bool active;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger
+        ? Colors.redAccent
+        : active
+        ? _AppColors.cyan
+        : Colors.orange;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _KeyValueRow extends StatelessWidget {
+  const _KeyValueRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          color: _AppColors.textMuted,
+          size: 20,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.35,
+              ),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(
+                    color: _AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    color: _AppColors.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InlineBanner extends StatelessWidget {
+  const _InlineBanner({
+    required this.icon,
+    required this.text,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? Colors.redAccent : _AppColors.cyan;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: _AppColors.navy,
+                fontSize: 14,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyBlock extends StatelessWidget {
+  const _EmptyBlock({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: _AppColors.cyan,
+            size: 30,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _AppColors.navy,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _AppColors.textMuted,
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _AppColors.navy.withOpacity(0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: _AppColors.navy,
+            size: 23,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppColors {
+  static const navy = Color(0xFF061B3A);
+  static const cyan = Color(0xFF00B8CC);
+  static const textMuted = Color(0xFF667085);
+  static const border = Color(0xFFD6DEE8);
+  static const surface = Colors.white;
+  static const lightSurface = Color(0xFFF2F6FA);
+}
+
+extension on RaceStatus {
+  String get wireNameRu {
+    return switch (this) {
+      RaceStatus.notStarted => 'не началась',
+      RaceStatus.inProgress => 'идет',
+      RaceStatus.finished => 'завершена',
+    };
   }
 }

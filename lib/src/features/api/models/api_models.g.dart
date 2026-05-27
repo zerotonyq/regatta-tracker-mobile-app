@@ -39,6 +39,7 @@ Map<String, dynamic> _$UploadLocationRequestDtoToJson(
   'time': instance.time,
   'longitude': instance.longitude,
   'latitude': instance.latitude,
+  'race_id': ?instance.raceId,
 };
 
 Map<String, dynamic> _$UploadBatchPointDtoToJson(
@@ -212,11 +213,42 @@ RaceResultsResponseDto _$RaceResultsResponseDtoFromJson(
   Map<String, dynamic> json,
 ) => RaceResultsResponseDto(
   raceId: (json['race_id'] as num).toInt(),
-  status: $enumDecode(_$RaceStatusEnumMap, json['status']),
-  eventsCount: (json['events_count'] as num).toInt(),
-  hasCourse: json['has_course'] as bool,
+  scope: $enumDecode(_$RaceResultsScopeEnumMap, json['scope']),
+  participants: (json['participants'] as List<dynamic>)
+      .map((e) => ParticipantProgressDto.fromJson(e as Map<String, dynamic>))
+      .toList(),
+);
+
+const _$RaceResultsScopeEnumMap = {
+  RaceResultsScope.self: 'self',
+  RaceResultsScope.participants: 'participants',
+};
+
+ParticipantProgressDto _$ParticipantProgressDtoFromJson(
+  Map<String, dynamic> json,
+) => ParticipantProgressDto(
+  userId: (json['user_id'] as num).toInt(),
+  status: $enumDecode(_$ParticipantRaceProgressStatusEnumMap, json['status']),
   startedAt: json['started_at'] as String?,
-  endedAt: json['ended_at'] as String?,
+  finishedAt: json['finished_at'] as String?,
+  currentMark: json['current_mark'] == null
+      ? null
+      : ParticipantCurrentMarkDto.fromJson(
+          json['current_mark'] as Map<String, dynamic>,
+        ),
+);
+
+const _$ParticipantRaceProgressStatusEnumMap = {
+  ParticipantRaceProgressStatus.notStarted: 'not_started',
+  ParticipantRaceProgressStatus.inRace: 'in_race',
+  ParticipantRaceProgressStatus.finished: 'finished',
+};
+
+ParticipantCurrentMarkDto _$ParticipantCurrentMarkDtoFromJson(
+  Map<String, dynamic> json,
+) => ParticipantCurrentMarkDto(
+  index: (json['index'] as num).toInt(),
+  id: json['id'] as String,
 );
 
 ErrorResponseDto _$ErrorResponseDtoFromJson(Map<String, dynamic> json) =>

@@ -51,6 +51,15 @@ class MockRegattaSensorBridgePlatform
   }
 
   @override
+  Future<GpsSample> getCurrentLocation() async {
+    return GpsSample(
+      timestamp: DateTime.utc(2026, 4, 29, 12),
+      longitude: 30,
+      latitude: 60,
+    );
+  }
+
+  @override
   Future<SessionStatus> stopTrackingSession(String sessionId) {
     throw UnimplementedError();
   }

@@ -22,6 +22,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.5
   path: ^1.9.1
+  flutter_svg: ^2.0.10
   regatta_sensor_bridge:
     path: packages/regatta_sensor_bridge
 
@@ -38,3 +39,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/regatracker_logo.svg

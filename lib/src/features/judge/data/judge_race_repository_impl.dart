@@ -57,6 +57,11 @@ class JudgeRaceRepositoryImpl implements JudgeRaceRepository {
   }
 
   @override
+  Future<RaceResultsResponseDto> loadRaceResults({required int raceId}) {
+    return _managementRemoteDataSource.getRaceResults(raceId: raceId);
+  }
+
+  @override
   Future<void> publishRaceEvent({
     required int raceId,
     required String eventId,

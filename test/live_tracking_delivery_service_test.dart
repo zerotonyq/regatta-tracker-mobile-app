@@ -12,6 +12,85 @@ import 'package:vkr_regatta/src/features/tracking/domain/tracking_session_entity
 import 'package:vkr_regatta/src/features/tracking/domain/tracking_session_repository.dart';
 
 void main() {
+  test('passes race_id in live upload batch requests', () async {
+    final receiver = _FakeReceiverRemoteDataSource(
+      response: UploadBatchResponseDto(
+        requestId: 'live-1',
+        savedCount: 1,
+        skippedCount: 0,
+        items: <UploadBatchItemResultDto>[
+          UploadBatchItemResultDto(
+            clientTaskId: 'client-1',
+            sessionId: 1,
+            status: 'saved',
+            message: 'OK',
+          ),
+        ],
+      ),
+    );
+    final trackingRepository = _FakeTrackingRepository(
+      sessionsById: <int, TrackingSessionEntity>{
+        1: _session(id: 1, raceId: 99),
+      },
+    );
+    final sessionRepository = _FakeTrackingSessionRepository();
+    final service = LiveTrackingDeliveryService(
+      receiverRemoteDataSource: receiver,
+      trackingRepository: trackingRepository,
+      trackingSessionRepository: sessionRepository,
+    );
+    final point = TrackingPointEntity(
+      sessionId: 1,
+      timestampUtc: DateTime.utc(2026, 4, 29, 12),
+      longitude: 30,
+      latitude: 60,
+    );
+
+    await service.deliverPoint(sessionId: 1, point: point);
+
+    expect(receiver.uploadRaceIds, <int?>[99]);
+    expect(sessionRepository.queuedGpsPoints, isEmpty);
+  });
+
+  test(
+    'queues point and skips network upload when race_id is unavailable',
+    () async {
+      final receiver = _FakeReceiverRemoteDataSource(
+        response: UploadBatchResponseDto(
+          requestId: 'live-1',
+          savedCount: 1,
+          skippedCount: 0,
+          items: <UploadBatchItemResultDto>[
+            UploadBatchItemResultDto(
+              clientTaskId: 'client-1',
+              sessionId: 1,
+              status: 'saved',
+              message: 'OK',
+            ),
+          ],
+        ),
+      );
+      final trackingRepository = _FakeTrackingRepository();
+      final sessionRepository = _FakeTrackingSessionRepository();
+      final service = LiveTrackingDeliveryService(
+        receiverRemoteDataSource: receiver,
+        trackingRepository: trackingRepository,
+        trackingSessionRepository: sessionRepository,
+      );
+      final point = TrackingPointEntity(
+        sessionId: 1,
+        timestampUtc: DateTime.utc(2026, 4, 29, 12),
+        longitude: 30,
+        latitude: 60,
+      );
+
+      await service.deliverPoint(sessionId: 1, point: point);
+
+      expect(receiver.uploadRaceIds, isEmpty);
+      expect(sessionRepository.queuedGpsPoints, <TrackingPointEntity>[point]);
+    },
+  );
+
   test(
     'queues live point when receiver skips it before race acceptance',
     () async {
@@ -31,7 +110,11 @@ void main() {
           ],
         ),
       );
-      final trackingRepository = _FakeTrackingRepository();
+      final trackingRepository = _FakeTrackingRepository(
+        sessionsById: <int, TrackingSessionEntity>{
+          1: _session(id: 1, raceId: 10),
+        },
+      );
       final sessionRepository = _FakeTrackingSessionRepository();
       final service = LiveTrackingDeliveryService(
         receiverRemoteDataSource: receiver,
@@ -58,6 +141,7 @@ class _FakeReceiverRemoteDataSource extends ReceiverRemoteDataSource {
     : super(receiverApi: null);
 
   final UploadBatchResponseDto response;
+  final List<int?> uploadRaceIds = <int?>[];
 
   @override
   Future<UploadBatchResponseDto> uploadBatch({
@@ -68,6 +152,7 @@ class _FakeReceiverRemoteDataSource extends ReceiverRemoteDataSource {
     if (points.isEmpty) {
       throw ApiException(statusCode: 400, message: 'points required');
     }
+    uploadRaceIds.add(raceId);
     return response;
   }
 }
@@ -123,7 +208,11 @@ class _FakeTrackingSessionRepository implements TrackingSessionRepository {
 }
 
 class _FakeTrackingRepository implements TrackingRepository {
+  _FakeTrackingRepository({Map<int, TrackingSessionEntity>? sessionsById})
+    : _sessionsById = sessionsById ?? <int, TrackingSessionEntity>{};
+
   final List<TrackingPointEntity> savedGpsPoints = <TrackingPointEntity>[];
+  final Map<int, TrackingSessionEntity> _sessionsById;
 
   @override
   Future<TrackingSessionEntity> createSession({
@@ -167,7 +256,8 @@ class _FakeTrackingRepository implements TrackingRepository {
   }) async => savedGpsPoints.take(limit).toList(growable: false);
 
   @override
-  Future<TrackingSessionEntity?> loadSessionById(int sessionId) async => null;
+  Future<TrackingSessionEntity?> loadSessionById(int sessionId) async =>
+      _sessionsById[sessionId];
 
   @override
   Future<void> saveDerivedMetrics(List<DerivedMetricEntity> metrics) async {}
@@ -191,4 +281,15 @@ class _FakeTrackingRepository implements TrackingRepository {
   }) {
     throw UnimplementedError();
   }
+}
+
+TrackingSessionEntity _session({required int id, required int raceId}) {
+  return TrackingSessionEntity(
+    id: id,
+    raceId: raceId,
+    role: 'participant',
+    state: TrackingSessionState.tracking,
+    intervalSeconds: 1,
+    startedAtUtc: DateTime.utc(2026, 4, 29, 11),
+  );
 }

@@ -79,6 +79,7 @@ class TrackingSessionRepositoryImpl implements TrackingSessionRepository {
     if (sessionId == null) {
       return;
     }
+    final session = await _trackingRepository.loadSessionById(sessionId);
 
     final taskId =
         'gps-$sessionId-${point.timestampUtc.microsecondsSinceEpoch}';
@@ -93,6 +94,7 @@ class TrackingSessionRepositoryImpl implements TrackingSessionRepository {
         payloadJson: SyncUploadPayload.fromTrackingPoint(
           point: point,
           clientTaskId: taskId,
+          raceId: session?.raceId,
         ).toJson(),
         priority: 50,
       ),

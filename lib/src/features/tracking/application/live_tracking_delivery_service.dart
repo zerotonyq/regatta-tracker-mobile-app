@@ -31,10 +31,17 @@ class LiveTrackingDeliveryService {
     required TrackingPointEntity point,
   }) async {
     await _trackingRepository.saveGpsPoint(point: point);
+    final session = await _trackingRepository.loadSessionById(sessionId);
+    final raceId = session?.raceId;
+    if (raceId == null) {
+      await _queueForLaterSync(sessionId, point, forceFlush: true);
+      return;
+    }
 
     try {
       final response = await _receiverRemoteDataSource.uploadBatch(
         requestId: _requestIdFor(sessionId, point),
+        raceId: raceId,
         points: <UploadBatchPointDto>[_pointDtoFromEntity(sessionId, point)],
       );
       if (response.items.any((item) => item.status == 'skipped')) {

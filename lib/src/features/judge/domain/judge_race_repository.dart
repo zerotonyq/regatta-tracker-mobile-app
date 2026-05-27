@@ -18,6 +18,7 @@ abstract class JudgeRaceRepository {
   Future<List<RaceSummaryDto>> loadMyRaces();
 
   Future<RaceDetailDto> loadRaceDetails({required int raceId});
+  Future<RaceResultsResponseDto> loadRaceResults({required int raceId});
 
   Future<void> publishRaceEvent({
     required int raceId,

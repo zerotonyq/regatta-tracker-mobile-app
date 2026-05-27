@@ -333,6 +333,11 @@ class _FakeSensorBridgeRepository implements SensorBridgeRepository {
       TrackingHealth.unknown;
 
   @override
+  Future<GpsSample> getCurrentLocation() {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<SessionStatus> resumeTrackingSession({required String sessionId}) {
     throw UnimplementedError();
   }

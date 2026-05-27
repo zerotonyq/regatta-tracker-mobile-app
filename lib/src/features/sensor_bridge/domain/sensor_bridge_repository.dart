@@ -7,6 +7,8 @@ abstract class SensorBridgeRepository {
 
   Future<TrackingHealth> readTrackingHealth({String? sessionId});
 
+  Future<GpsSample> getCurrentLocation();
+
   Stream<TrackingHealth> watchTrackingHealth({String? sessionId});
 
   Future<SessionStatus> startTrackingSession({required SessionConfig config});

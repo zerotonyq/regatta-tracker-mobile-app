@@ -54,6 +54,10 @@ abstract class RegattaSensorBridgePlatform extends PlatformInterface {
     throw UnimplementedError('getTrackingHealth() has not been implemented.');
   }
 
+  Future<GpsSample> getCurrentLocation() {
+    throw UnimplementedError('getCurrentLocation() has not been implemented.');
+  }
+
   Future<SessionStatus?> getSessionStatus(String sessionId) {
     throw UnimplementedError('getSessionStatus() has not been implemented.');
   }

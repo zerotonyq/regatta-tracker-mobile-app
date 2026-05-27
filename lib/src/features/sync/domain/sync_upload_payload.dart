@@ -6,6 +6,7 @@ class SyncUploadPayload {
   const SyncUploadPayload({
     required this.clientTaskId,
     required this.sessionId,
+    this.raceId,
     required this.timestampUtc,
     required this.longitude,
     required this.latitude,
@@ -15,6 +16,7 @@ class SyncUploadPayload {
 
   final String clientTaskId;
   final int sessionId;
+  final int? raceId;
   final DateTime timestampUtc;
   final double longitude;
   final double latitude;
@@ -24,10 +26,12 @@ class SyncUploadPayload {
   factory SyncUploadPayload.fromTrackingPoint({
     required TrackingPointEntity point,
     required String clientTaskId,
+    int? raceId,
   }) {
     return SyncUploadPayload(
       clientTaskId: clientTaskId,
       sessionId: point.sessionId!,
+      raceId: raceId,
       timestampUtc: point.timestampUtc.toUtc(),
       longitude: point.longitude,
       latitude: point.latitude,
@@ -43,6 +47,7 @@ class SyncUploadPayload {
     return SyncUploadPayload(
       clientTaskId: map['client_task_id'] as String,
       sessionId: (map['session_id'] as num).toInt(),
+      raceId: (map['race_id'] as num?)?.toInt(),
       timestampUtc: DateTime.parse(map['timestamp_utc'] as String).toUtc(),
       longitude: (map['longitude'] as num).toDouble(),
       latitude: (map['latitude'] as num).toDouble(),
@@ -56,6 +61,7 @@ class SyncUploadPayload {
     return jsonEncode(<String, Object?>{
       'client_task_id': clientTaskId,
       'session_id': sessionId,
+      'race_id': raceId,
       'timestamp_utc': timestampUtc.toUtc().toIso8601String(),
       'longitude': longitude,
       'latitude': latitude,

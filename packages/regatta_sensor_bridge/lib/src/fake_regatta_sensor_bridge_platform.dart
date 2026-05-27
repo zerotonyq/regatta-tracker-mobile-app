@@ -42,6 +42,16 @@ class FakeRegattaSensorBridgePlatform extends RegattaSensorBridgePlatform {
   }
 
   @override
+  Future<GpsSample> getCurrentLocation() async {
+    return GpsSample(
+      timestamp: DateTime.now().toUtc(),
+      longitude: 30,
+      latitude: 60,
+      accuracyMeters: _currentHealth.gpsAccuracyMeters,
+    );
+  }
+
+  @override
   Future<SessionStatus> pauseTrackingSession(String sessionId) async {
     final current = _requireSession(sessionId);
     final updated = current.copyWith(

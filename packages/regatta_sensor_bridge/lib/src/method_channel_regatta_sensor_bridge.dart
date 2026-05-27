@@ -70,6 +70,24 @@ class MethodChannelRegattaSensorBridge extends RegattaSensorBridgePlatform {
   }
 
   @override
+  Future<GpsSample> getCurrentLocation() async {
+    final payload = await _invokeMapMethod(
+      'getCurrentLocation',
+      const <String, Object?>{},
+    );
+    if (payload == null) {
+      throw SensorBridgeException(
+        const NativeError(
+          code: 'empty_response',
+          message: 'getCurrentLocation returned no location payload.',
+          isRecoverable: true,
+        ),
+      );
+    }
+    return GpsSample.fromMap(payload);
+  }
+
+  @override
   Future<SessionStatus> pauseTrackingSession(String sessionId) async {
     final status = await _invokeMapMethod(
       'pauseTrackingSession',

@@ -21,6 +21,7 @@ class JudgeRaceController extends ChangeNotifier {
   List<UserSummaryDto> _availableParticipants = const <UserSummaryDto>[];
   List<UserSummaryDto> _availableJudges = const <UserSummaryDto>[];
   List<RaceSummaryDto> _myRaces = const <RaceSummaryDto>[];
+  RaceResultsResponseDto? _raceResults;
 
   bool get loading => _loading;
   String? get error => _error;
@@ -30,6 +31,7 @@ class JudgeRaceController extends ChangeNotifier {
   List<UserSummaryDto> get availableParticipants => _availableParticipants;
   List<UserSummaryDto> get availableJudges => _availableJudges;
   List<RaceSummaryDto> get myRaces => _myRaces;
+  RaceResultsResponseDto? get raceResults => _raceResults;
   int? get currentRaceId => _context.lastRaceId;
   JudgeRaceStatus get currentStatus => _context.status;
 
@@ -51,6 +53,12 @@ class JudgeRaceController extends ChangeNotifier {
         query: judgeQuery,
       );
       _myRaces = await _judgeRaceFlowService.loadMyRaces();
+    });
+  }
+
+  Future<void> loadRaceResults({required int raceId}) async {
+    await _runBusy<void>(() async {
+      _raceResults = await _judgeRaceFlowService.loadRaceResults(raceId: raceId);
     });
   }
 
