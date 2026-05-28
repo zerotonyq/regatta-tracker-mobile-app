@@ -59,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
           animation: widget.controller,
           builder: (context, _) {
             final screenWidth = MediaQuery.sizeOf(context).width;
-            final brandFontSize = screenWidth < 360 ? 44.0 : 56.0;
+            final brandFontSize = 56.0;
             final titleFontSize = screenWidth < 360 ? 34.0 : 40.0;
             return Center(
               child: SingleChildScrollView(
@@ -87,15 +87,19 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 20),
 
-                        Text(
-                          'REGATracker',
-                          maxLines: 1,
-                          softWrap: false,
-                          style: TextStyle(
-                            fontSize: brandFontSize,
-                            fontWeight: FontWeight.w800,
-                            color: navy,
-                            letterSpacing: -0.8,
+                        SizedBox(
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'REGATracker',
+                              style: TextStyle(
+                                fontSize: brandFontSize,
+                                fontWeight: FontWeight.w800,
+                                color: navy,
+                                letterSpacing: -0.8,
+                              ),
+                            ),
                           ),
                         ),
 

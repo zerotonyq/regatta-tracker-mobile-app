@@ -355,12 +355,6 @@ class _RacingModePageState extends State<RacingModePage> {
                   children: [
                     Row(
                       children: [
-                        _RoundIconButton(
-                          icon: Icons.arrow_back_rounded,
-                          tooltip: 'Назад',
-                          onTap: widget.onBack,
-                        ),
-                        const SizedBox(width: 12),
                         SvgPicture.asset(
                           _logoAsset,
                           width: 42,
